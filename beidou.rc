@@ -1,0 +1,549 @@
+//Microsoft Developer Studio generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Chinese (P.R.C.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+#ifdef _WIN32
+LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
+#pragma code_page(936)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#define _AFX_NO_SPLITTER_RESOURCES\r\n"
+    "#define _AFX_NO_OLE_RESOURCES\r\n"
+    "#define _AFX_NO_TRACKER_RESOURCES\r\n"
+    "#define _AFX_NO_PROPERTY_RESOURCES\r\n"
+    "\r\n"
+    "#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)\r\n"
+    "#ifdef _WIN32\r\n"
+    "LANGUAGE 4, 2\r\n"
+    "#pragma code_page(936)\r\n"
+    "#endif //_WIN32\r\n"
+    "#include ""res\\beidou.rc2""  // non-Microsoft Visual C++ edited resources\r\n"
+    "#include ""l.chs\\afxres.rc""          // Standard components\r\n"
+    "#endif\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDR_MAINFRAME           ICON    DISCARDABLE     "res\\beidou.ico"
+IDI_ICON_OFF            ICON    DISCARDABLE     "res\\ICON_NOT.ico"
+IDI_ICON_RED            ICON    DISCARDABLE     "res\\ICON_ON.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ABOUTBOX DIALOG DISCARDABLE  0, 0, 235, 55
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "关于 北斗系统"
+FONT 9, "宋体"
+BEGIN
+    ICON            IDR_MAINFRAME,IDC_STATIC,11,17,20,20
+    LTEXT           "北斗卫星 1.0 版",IDC_STATIC,85,10,67,8,SS_NOPREFIX
+    LTEXT           "版权所有 (C) 2013",IDC_STATIC,53,27,69,8
+    DEFPUSHBUTTON   "确定",IDOK,178,34,50,14,WS_GROUP
+END
+
+IDD_BEIDOU_DIALOG DIALOGEX 0, 0, 727, 385
+STYLE DS_MODALFRAME | WS_MINIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | 
+    WS_SYSMENU
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "多链路通信软件"
+FONT 9, "宋体"
+BEGIN
+    LTEXT           "串口选择",IDC_STATIC,430,19,33,8
+    CONTROL         "",IDC_MSCOMM1,"{648A5600-2C6E-101B-82B6-000000000014}",
+                    WS_TABSTOP,409,27,25,25
+    GROUPBOX        "北斗串口配置",IDC_STATIC,421,7,92,71
+    COMBOBOX        IDC_COMBO_COMSELECT,466,17,42,117,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL
+    PUSHBUTTON      "打开串口",IDC_OPENCLOSEPORT,455,32,48,19
+    ICON            IDI_ICON_OFF,IDC_STATIC_OPENOFF,425,32,20,20
+    EDITTEXT        IDC_EDIT_RECEIVEMSG,202,15,202,205,ES_MULTILINE | 
+                    ES_UPPERCASE | ES_READONLY | WS_VSCROLL
+    PUSHBUTTON      "发送信息",IDC_BUTTON_SEND,337,291,63,53
+    EDITTEXT        IDC_EDIT_SENDMSG,219,261,114,84,ES_MULTILINE | 
+                    WS_VSCROLL
+    PUSHBUTTON      "清除接收内容",IDC_BUTTON_CLEAR,337,260,63,25
+    GROUPBOX        "北斗系统检测",IDC_STATIC,519,7,199,125
+    PUSHBUTTON      "IC查询",IDC_BUTTON_ICCHECK,527,21,49,22
+    PUSHBUTTON      "功率检测",IDC_BUTTON3_POWERCHECK,590,21,49,22
+    LTEXT           "备用卫星",IDC_STATIC,639,113,33,8
+    LTEXT           "卫星2",IDC_STATIC,584,113,21,8
+    LTEXT           "卫星1",IDC_STATIC,529,113,21,8
+    CONTROL         "Progress1",IDC_PROGRESS1,"msctls_progress32",WS_BORDER,
+                    551,111,31,12
+    LTEXT           "卡号",IDC_STATIC,556,59,17,8
+    LTEXT           "类型",IDC_STATIC,637,59,17,8
+    LTEXT           "信息内容",IDC_STATIC,208,289,9,40
+    EDITTEXT        IDC_EDIT_CARDNUMBER,577,57,42,16,ES_CENTER | 
+                    ES_AUTOHSCROLL | ES_READONLY
+    EDITTEXT        IDC_EDIT_CATEGORY,657,57,28,16,ES_CENTER | 
+                    ES_AUTOHSCROLL | ES_READONLY
+    LTEXT           "秒",IDC_STATIC,691,59,9,8
+    LTEXT           "IC卡状态",IDC_STATIC,541,81,33,8
+    LTEXT           "号码",IDC_STATIC,14,140,17,8
+    LTEXT           "入站状态",IDC_STATIC,622,81,33,8
+    EDITTEXT        IDC_EDIT_CARDSTATES,577,77,41,16,ES_CENTER | 
+                    ES_AUTOHSCROLL | ES_READONLY
+    EDITTEXT        IDC_EDIT_BASESTATES,657,77,42,16,ES_CENTER | 
+                    ES_AUTOHSCROLL | ES_READONLY
+    GROUPBOX        "IC信息",IDC_STATIC,527,45,184,53
+    GROUPBOX        "功率信息",IDC_STATIC,527,100,184,28
+    GROUPBOX        "信息发送",IDC_STATIC,203,249,202,116
+    EDITTEXT        IDC_EDIT_TARGETNUM,32,138,152,14,ES_CENTER | 
+                    ES_AUTOHSCROLL | ES_READONLY | ES_NUMBER
+    COMBOBOX        IDC_COMBO_TEL_MANUAL_SELECT,99,75,84,93,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL | WS_TABSTOP
+    EDITTEXT        IDC_EDIT_FKXX,523,226,188,143,ES_MULTILINE | ES_READONLY | 
+                    WS_VSCROLL,WS_EX_DLGMODALFRAME | WS_EX_CLIENTEDGE | 
+                    WS_EX_STATICEDGE
+    GROUPBOX        "反馈信息",IDC_STATIC,519,190,199,184
+    CONTROL         "Progress1",IDC_PROGRESS2,"msctls_progress32",WS_BORDER,
+                    606,111,31,12
+    CONTROL         "Progress1",IDC_PROGRESS3,"msctls_progress32",WS_BORDER,
+                    673,111,31,12
+    CONTROL         "Progress4",IDC_PROGRESS_TIMER,"msctls_progress32",
+                    WS_BORDER,219,351,128,9
+    PUSHBUTTON      "打电话",IDC_BUTTON_PHONE,13,14,53,41
+    PUSHBUTTON      "发短息",IDC_BUTTON_MESSAGE,74,14,53,41
+    PUSHBUTTON      "配置",IDC_BUTTON_SET,135,14,53,41
+    PUSHBUTTON      "1",IDC_BUTTON_1,16,155,53,45
+    PUSHBUTTON      "2",IDC_BUTTON_2,74,155,53,45
+    PUSHBUTTON      "3",IDC_BUTTON_3,131,155,53,45
+    PUSHBUTTON      "4",IDC_BUTTON_4,16,201,53,45
+    PUSHBUTTON      "5",IDC_BUTTON_5,74,201,53,45
+    PUSHBUTTON      "6",IDC_BUTTON_6,131,201,53,45
+    PUSHBUTTON      "8",IDC_BUTTON_7,74,247,53,45
+    PUSHBUTTON      "7",IDC_BUTTON_8,16,247,53,45
+    PUSHBUTTON      "9",IDC_BUTTON_9,131,247,53,45
+    PUSHBUTTON      "0",IDC_BUTTON_10,74,293,53,45
+    PUSHBUTTON      "*",IDC_BUTTON_XING,16,293,53,45
+    PUSHBUTTON      "#",IDC_BUTTON_JING,131,293,53,45
+    PUSHBUTTON      "<=",IDC_BUTTON_BACK,147,340,37,32
+    PUSHBUTTON      "拨打电话",IDC_BUTTON_CALL,57,340,86,32
+    GROUPBOX        "",IDC_STATIC_PHONE,7,5,187,369,NOT WS_VISIBLE
+    GROUPBOX        "",IDC_STATIC_MESSAGE,7,5,402,369,NOT WS_VISIBLE
+    CONTROL         "",IDC_MSCOMM_WT,"{648A5600-2C6E-101B-82B6-000000000014}",
+                    WS_TABSTOP,409,87,25,25
+    LTEXT           "串口选择",IDC_STATIC,430,92,33,8
+    GROUPBOX        "有线电话串口配置",IDC_STATIC,422,79,92,71
+    COMBOBOX        IDC_COMBO_COMSELECT_WT,466,90,42,111,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL
+    PUSHBUTTON      "打开串口",IDC_OPENCLOSEPORT_WT,455,105,48,19
+    ICON            IDI_ICON_OFF,IDC_STATIC_OPENOFF_WT,425,105,20,20
+    PUSHBUTTON      "清空",IDC_BUTTON_CLEAR_NUM,16,340,38,32
+    LTEXT           "串口选择",IDC_STATIC,430,164,33,8
+    GROUPBOX        "运维串口配置",IDC_STATIC,422,151,92,71
+    COMBOBOX        IDC_COMBO_COMSELECT_YW,466,162,42,125,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL
+    PUSHBUTTON      "打开串口",IDC_BUTTON_CONNECTYUNWEI,455,178,48,19
+    ICON            IDI_ICON_OFF,IDC_STATIC_YUNWEI,425,178,20,20
+    CONTROL         "",IDC_MSCOMM_YW,"{648A5600-2C6E-101B-82B6-000000000014}",
+                    WS_TABSTOP,407,175,25,25
+    ICON            IDI_ICON_OFF,IDC_STATIC_BOARD_LED_YW,425,199,20,20
+    CTEXT           " 运维板未连接！",IDC_STATIC_BOARDCONNECT_YW,452,201,59,
+                    15,SS_CENTERIMAGE | SS_SUNKEN | WS_BORDER
+    PUSHBUTTON      "手动复位",IDC_MODULE_RESET,526,203,48,19
+    PUSHBUTTON      "音频切换",IDC_SOUND_SWITCH,582,203,48,19
+    PUSHBUTTON      "清空反馈信息",IDC_BUTTON_CLEARMSG,637,203,74,20
+    ICON            IDI_ICON_OFF,IDC_STATIC_BOARD_LED_BD,425,53,20,20
+    CTEXT           "北斗未连接！",IDC_STATIC_BOARDCONNECT_BD,449,56,59,15,
+                    SS_CENTERIMAGE | SS_SUNKEN | WS_BORDER
+    ICON            IDI_ICON_OFF,IDC_STATIC_BOARD_LED_WT,425,125,20,20
+    CTEXT           "有线电话未连接！",IDC_STATIC_BOARDCONNECT_WT,447,128,64,
+                    15,SS_CENTERIMAGE | SS_SUNKEN | WS_BORDER
+    LTEXT           "串口选择",IDC_STATIC,430,235,33,8
+    GROUPBOX        "3G串口配置",IDC_STATIC,422,224,92,71
+    COMBOBOX        IDC_COMBO_COMSELECT_3G,466,233,42,125,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL
+    PUSHBUTTON      "打开串口",IDC_BUTTON_CONNECT3G,455,250,48,19
+    ICON            IDI_ICON_OFF,IDC_STATIC_3G,425,250,20,20
+    ICON            IDI_ICON_OFF,IDC_STATIC_BOARD_LED_3G,425,270,20,20
+    CTEXT           "3G未连接！",IDC_STATIC_BOARDCONNECT_3G,452,273,59,15,
+                    SS_CENTERIMAGE | SS_SUNKEN | WS_BORDER
+    CONTROL         "",IDC_MSCOMM_3G,"{648A5600-2C6E-101B-82B6-000000000014}",
+                    WS_TABSTOP,407,243,25,25
+    GROUPBOX        "3G、卫星电话信号强度及通信链路选择",IDC_STATIC,13,64,
+                    175,42
+    LTEXT           "3G信号强度：",IDC_RSSI,20,76,66,8
+    LTEXT           "卫星电话信号：",IDC_ST_RSSI,19,92,72,8
+    LTEXT           "串口选择",IDC_STATIC,430,310,33,8
+    GROUPBOX        "卫星电话串口配置",IDC_STATIC,422,298,92,71
+    COMBOBOX        IDC_COMBO_COMSELECT_ST,466,308,42,125,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL
+    PUSHBUTTON      "打开串口",IDC_BUTTON_CONNECTST,456,324,48,19
+    ICON            IDI_ICON_OFF,IDC_STATIC_ST,426,324,20,20
+    ICON            IDI_ICON_OFF,IDC_STATIC_BOARD_LED_ST,426,344,20,20
+    CTEXT           "卫星电话未连接!",IDC_STATIC_BOARDCONNECT_ST,447,348,64,
+                    15,SS_CENTERIMAGE | SS_SUNKEN | WS_BORDER
+    LTEXT           "有线电话",IDC_STATIC,16,116,33,8
+    LTEXT           "3G",IDC_STATIC,82,116,9,8
+    LTEXT           "卫星电话",IDC_STATIC,126,116,33,8
+    ICON            IDI_ICON_OFF,IDC_STATIC_WT_R,52,109,20,20
+    ICON            IDI_ICON_OFF,IDC_STATIC_3G_P_R,94,109,20,20
+    ICON            IDI_ICON_OFF,IDC_STATIC_ST_R,163,109,20,20
+    LTEXT           "3G",IDC_STATIC,205,232,9,8
+    LTEXT           "北斗",IDC_STATIC,257,232,17,8
+    ICON            IDI_ICON_OFF,IDC_STATIC_3G_M_R,220,226,20,20
+    ICON            IDI_ICON_OFF,IDC_STATIC_BD_R,280,226,20,20
+    COMBOBOX        IDC_COMBO_MSG_MANUAL_SELECT,317,230,84,93,
+                    CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "TTS检测",IDC_123,653,21,50,22
+    LTEXT           "机箱温度：",IDC_STATIC,524,139,41,8
+    LTEXT           "0",IDC_STATIC_temperature,575,139,8,8
+    LTEXT           "℃",IDC_STATIC,593,139,9,8
+    PUSHBUTTON      "GPS定位",IDC_GPS,530,164,48,19
+    GROUPBOX        "北斗系统检测",IDC_STATIC,518,152,199,35
+    PUSHBUTTON      "查询信号",IDC_CSQ_WT,593,164,48,19
+    PUSHBUTTON      "区域信息",IDC_POSITION,656,164,48,19
+    LTEXT           "卫星电话定位：",IDC_ST_POSITION,95,92,89,8
+END
+
+
+#ifndef _MAC
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,1
+ PRODUCTVERSION 1,0,0,1
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080404b0"
+        BEGIN
+            VALUE "Comments", "\0"
+            VALUE "CompanyName", "\0"
+            VALUE "FileDescription", "beidou Microsoft 基础类应用程序\0"
+            VALUE "FileVersion", "1, 0, 0, 1\0"
+            VALUE "InternalName", "beidou\0"
+            VALUE "LegalCopyright", "版权所有 (C) 2013\0"
+            VALUE "LegalTrademarks", "\0"
+            VALUE "OriginalFilename", "beidou.EXE\0"
+            VALUE "PrivateBuild", "\0"
+            VALUE "ProductName", "beidou 应用程序\0"
+            VALUE "ProductVersion", "1, 0, 0, 1\0"
+            VALUE "SpecialBuild", "\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x804, 1200
+    END
+END
+
+#endif    // !_MAC
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO DISCARDABLE 
+BEGIN
+    IDD_ABOUTBOX, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 228
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 48
+    END
+
+    IDD_BEIDOU_DIALOG, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 720
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 378
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog Info
+//
+
+IDD_BEIDOU_DIALOG DLGINIT
+BEGIN
+    IDC_MSCOMM1, 0x376, 102, 0
+0x0013, 0x0000, 0x0043, 0x006f, 0x0070, 0x0079, 0x0072, 0x0069, 0x0067, 
+0x0068, 0x0074, 0x0020, 0x0028, 0x0063, 0x0029, 0x0020, 0x0031, 0x0039, 
+0x0039, 0x0034, 0x0020, 0x4321, 0x1234, 0x0008, 0x0000, 0x03ed, 0x0000, 
+0x03ed, 0x0000, 0x5601, 0x648a, 0x0000, 0x0006, 0x0000, 0x0001, 0x0400, 
+0x0000, 0x0200, 0x0000, 0x2580, 0x0000, 0x0000, 0x0008, 0x0000, 0x0000, 
+0x0000, 0x0000, 0x003f, 0x0000, 0x0001, 0x0000, 
+    IDC_COMBO_COMSELECT, 0x403, 5, 0
+0x4f43, 0x314d, "\000" 
+    IDC_COMBO_COMSELECT, 0x403, 5, 0
+0x4f43, 0x324d, "\000" 
+    IDC_COMBO_COMSELECT, 0x403, 5, 0
+0x4f43, 0x334d, "\000" 
+    IDC_COMBO_COMSELECT, 0x403, 5, 0
+0x4f43, 0x344d, "\000" 
+    IDC_COMBO_COMSELECT, 0x403, 5, 0
+0x4f43, 0x354d, "\000" 
+    IDC_COMBO_COMSELECT, 0x403, 5, 0
+0x4f43, 0x364d, "\000" 
+    IDC_COMBO_COMSELECT, 0x403, 5, 0
+0x4f43, 0x374d, "\000" 
+    IDC_COMBO_COMSELECT, 0x403, 5, 0
+0x4f43, 0x384d, "\000" 
+    IDC_COMBO_COMSELECT, 0x403, 5, 0
+0x4f43, 0x394d, "\000" 
+    IDC_COMBO_COMSELECT, 0x403, 6, 0
+0x4f43, 0x314d, 0x0030, 
+    IDC_COMBO_COMSELECT, 0x403, 6, 0
+0x4f43, 0x314d, 0x0031, 
+    IDC_COMBO_COMSELECT, 0x403, 6, 0
+0x4f43, 0x314d, 0x0032, 
+    IDC_COMBO_COMSELECT, 0x403, 6, 0
+0x4f43, 0x314d, 0x0033, 
+    IDC_COMBO_COMSELECT, 0x403, 6, 0
+0x4f43, 0x314d, 0x0034, 
+    IDC_COMBO_COMSELECT, 0x403, 6, 0
+0x4f43, 0x314d, 0x0035, 
+    IDC_COMBO_COMSELECT, 0x403, 6, 0
+0x4f43, 0x314d, 0x0036, 
+    IDC_COMBO_TEL_MANUAL_SELECT, 0x403, 5, 0
+0xd4d7, 0xafb6, "\000" 
+    IDC_COMBO_TEL_MANUAL_SELECT, 0x403, 9, 0
+0xd0d3, 0xdfcf, 0xe7b5, 0xb0bb, "\000" 
+    IDC_COMBO_TEL_MANUAL_SELECT, 0x403, 7, 0
+0x4733, 0xe7b5, 0xb0bb, "\000" 
+    IDC_COMBO_TEL_MANUAL_SELECT, 0x403, 9, 0
+0xc0ce, 0xc7d0, 0xe7b5, 0xb0bb, "\000" 
+    IDC_MSCOMM_WT, 0x376, 102, 0
+0x0013, 0x0000, 0x0043, 0x006f, 0x0070, 0x0079, 0x0072, 0x0069, 0x0067, 
+0x0068, 0x0074, 0x0020, 0x0028, 0x0063, 0x0029, 0x0020, 0x0031, 0x0039, 
+0x0039, 0x0034, 0x0020, 0x4321, 0x1234, 0x0008, 0x0000, 0x03ed, 0x0000, 
+0x03ed, 0x0000, 0x5601, 0x648a, 0x0000, 0x0006, 0x0000, 0x0001, 0x0400, 
+0x0000, 0x0200, 0x0000, 0x2580, 0x0000, 0x0000, 0x0008, 0x0000, 0x0000, 
+0x0000, 0x0000, 0x003f, 0x0000, 0x0001, 0x0000, 
+    IDC_COMBO_COMSELECT_WT, 0x403, 5, 0
+0x4f43, 0x314d, "\000" 
+    IDC_COMBO_COMSELECT_WT, 0x403, 5, 0
+0x4f43, 0x324d, "\000" 
+    IDC_COMBO_COMSELECT_WT, 0x403, 5, 0
+0x4f43, 0x334d, "\000" 
+    IDC_COMBO_COMSELECT_WT, 0x403, 5, 0
+0x4f43, 0x344d, "\000" 
+    IDC_COMBO_COMSELECT_WT, 0x403, 5, 0
+0x4f43, 0x354d, "\000" 
+    IDC_COMBO_COMSELECT_WT, 0x403, 5, 0
+0x4f43, 0x364d, "\000" 
+    IDC_COMBO_COMSELECT_WT, 0x403, 5, 0
+0x4f43, 0x374d, "\000" 
+    IDC_COMBO_COMSELECT_WT, 0x403, 5, 0
+0x4f43, 0x384d, "\000" 
+    IDC_COMBO_COMSELECT_WT, 0x403, 5, 0
+0x4f43, 0x394d, "\000" 
+    IDC_COMBO_COMSELECT_WT, 0x403, 6, 0
+0x4f43, 0x314d, 0x0030, 
+    IDC_COMBO_COMSELECT_WT, 0x403, 6, 0
+0x4f43, 0x314d, 0x0031, 
+    IDC_COMBO_COMSELECT_WT, 0x403, 6, 0
+0x4f43, 0x314d, 0x0032, 
+    IDC_COMBO_COMSELECT_WT, 0x403, 6, 0
+0x4f43, 0x314d, 0x0033, 
+    IDC_COMBO_COMSELECT_WT, 0x403, 6, 0
+0x4f43, 0x314d, 0x0034, 
+    IDC_COMBO_COMSELECT_WT, 0x403, 6, 0
+0x4f43, 0x314d, 0x0035, 
+    IDC_COMBO_COMSELECT_WT, 0x403, 6, 0
+0x4f43, 0x314d, 0x0036, 
+    IDC_COMBO_COMSELECT_YW, 0x403, 5, 0
+0x4f43, 0x314d, "\000" 
+    IDC_COMBO_COMSELECT_YW, 0x403, 5, 0
+0x4f43, 0x324d, "\000" 
+    IDC_COMBO_COMSELECT_YW, 0x403, 5, 0
+0x4f43, 0x334d, "\000" 
+    IDC_COMBO_COMSELECT_YW, 0x403, 5, 0
+0x4f43, 0x344d, "\000" 
+    IDC_COMBO_COMSELECT_YW, 0x403, 5, 0
+0x4f43, 0x354d, "\000" 
+    IDC_COMBO_COMSELECT_YW, 0x403, 5, 0
+0x4f43, 0x364d, "\000" 
+    IDC_COMBO_COMSELECT_YW, 0x403, 5, 0
+0x4f43, 0x374d, "\000" 
+    IDC_COMBO_COMSELECT_YW, 0x403, 5, 0
+0x4f43, 0x384d, "\000" 
+    IDC_COMBO_COMSELECT_YW, 0x403, 5, 0
+0x4f43, 0x394d, "\000" 
+    IDC_COMBO_COMSELECT_YW, 0x403, 6, 0
+0x4f43, 0x314d, 0x0030, 
+    IDC_COMBO_COMSELECT_YW, 0x403, 6, 0
+0x4f43, 0x314d, 0x0031, 
+    IDC_COMBO_COMSELECT_YW, 0x403, 6, 0
+0x4f43, 0x314d, 0x0032, 
+    IDC_COMBO_COMSELECT_YW, 0x403, 6, 0
+0x4f43, 0x314d, 0x0033, 
+    IDC_COMBO_COMSELECT_YW, 0x403, 6, 0
+0x4f43, 0x314d, 0x0034, 
+    IDC_COMBO_COMSELECT_YW, 0x403, 6, 0
+0x4f43, 0x314d, 0x0035, 
+    IDC_COMBO_COMSELECT_YW, 0x403, 6, 0
+0x4f43, 0x314d, 0x0036, 
+    IDC_MSCOMM_YW, 0x376, 102, 0
+0x0013, 0x0000, 0x0043, 0x006f, 0x0070, 0x0079, 0x0072, 0x0069, 0x0067, 
+0x0068, 0x0074, 0x0020, 0x0028, 0x0063, 0x0029, 0x0020, 0x0031, 0x0039, 
+0x0039, 0x0034, 0x0020, 0x4321, 0x1234, 0x0008, 0x0000, 0x03ed, 0x0000, 
+0x03ed, 0x0000, 0x5601, 0x648a, 0x0000, 0x0006, 0x0000, 0x0001, 0x0400, 
+0x0000, 0x0200, 0x0000, 0x2580, 0x0000, 0x0000, 0x0008, 0x0000, 0x0000, 
+0x0000, 0x0000, 0x003f, 0x0000, 0x0001, 0x0000, 
+    IDC_COMBO_COMSELECT_3G, 0x403, 5, 0
+0x4f43, 0x314d, "\000" 
+    IDC_COMBO_COMSELECT_3G, 0x403, 5, 0
+0x4f43, 0x324d, "\000" 
+    IDC_COMBO_COMSELECT_3G, 0x403, 5, 0
+0x4f43, 0x334d, "\000" 
+    IDC_COMBO_COMSELECT_3G, 0x403, 5, 0
+0x4f43, 0x344d, "\000" 
+    IDC_COMBO_COMSELECT_3G, 0x403, 5, 0
+0x4f43, 0x354d, "\000" 
+    IDC_COMBO_COMSELECT_3G, 0x403, 5, 0
+0x4f43, 0x364d, "\000" 
+    IDC_COMBO_COMSELECT_3G, 0x403, 5, 0
+0x4f43, 0x374d, "\000" 
+    IDC_COMBO_COMSELECT_3G, 0x403, 5, 0
+0x4f43, 0x384d, "\000" 
+    IDC_COMBO_COMSELECT_3G, 0x403, 5, 0
+0x4f43, 0x394d, "\000" 
+    IDC_COMBO_COMSELECT_3G, 0x403, 6, 0
+0x4f43, 0x314d, 0x0030, 
+    IDC_COMBO_COMSELECT_3G, 0x403, 6, 0
+0x4f43, 0x314d, 0x0031, 
+    IDC_COMBO_COMSELECT_3G, 0x403, 6, 0
+0x4f43, 0x314d, 0x0032, 
+    IDC_COMBO_COMSELECT_3G, 0x403, 6, 0
+0x4f43, 0x314d, 0x0033, 
+    IDC_COMBO_COMSELECT_3G, 0x403, 6, 0
+0x4f43, 0x314d, 0x0034, 
+    IDC_COMBO_COMSELECT_3G, 0x403, 6, 0
+0x4f43, 0x314d, 0x0035, 
+    IDC_COMBO_COMSELECT_3G, 0x403, 6, 0
+0x4f43, 0x314d, 0x0036, 
+    IDC_MSCOMM_3G, 0x376, 102, 0
+0x0013, 0x0000, 0x0043, 0x006f, 0x0070, 0x0079, 0x0072, 0x0069, 0x0067, 
+0x0068, 0x0074, 0x0020, 0x0028, 0x0063, 0x0029, 0x0020, 0x0031, 0x0039, 
+0x0039, 0x0034, 0x0020, 0x4321, 0x1234, 0x0008, 0x0000, 0x03ed, 0x0000, 
+0x03ed, 0x0000, 0x5601, 0x648a, 0x0000, 0x0006, 0x0000, 0x0001, 0x0400, 
+0x0000, 0x0200, 0x0000, 0x2580, 0x0000, 0x0000, 0x0008, 0x0000, 0x0000, 
+0x0000, 0x0000, 0x003f, 0x0000, 0x0001, 0x0000, 
+    IDC_COMBO_COMSELECT_ST, 0x403, 5, 0
+0x4f43, 0x314d, "\000" 
+    IDC_COMBO_COMSELECT_ST, 0x403, 5, 0
+0x4f43, 0x324d, "\000" 
+    IDC_COMBO_COMSELECT_ST, 0x403, 5, 0
+0x4f43, 0x334d, "\000" 
+    IDC_COMBO_COMSELECT_ST, 0x403, 5, 0
+0x4f43, 0x344d, "\000" 
+    IDC_COMBO_MSG_MANUAL_SELECT, 0x403, 5, 0
+0xd4d7, 0xafb6, "\000" 
+    IDC_COMBO_MSG_MANUAL_SELECT, 0x403, 7, 0
+0x4733, 0xccb6, 0xc5d0, "\000" 
+    IDC_COMBO_MSG_MANUAL_SELECT, 0x403, 9, 0
+0xb1b1, 0xb7b6, 0xa8b1, 0xc4ce, "\000" 
+    0
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_ABOUTBOX            "关于 beidou(&A)..."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    AFX_IDS_APP_TITLE       "温馨提示"
+END
+
+#endif    // Chinese (P.R.C.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+#define _AFX_NO_SPLITTER_RESOURCES
+#define _AFX_NO_OLE_RESOURCES
+#define _AFX_NO_TRACKER_RESOURCES
+#define _AFX_NO_PROPERTY_RESOURCES
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+#ifdef _WIN32
+LANGUAGE 4, 2
+#pragma code_page(936)
+#endif //_WIN32
+#include "res\beidou.rc2"  // non-Microsoft Visual C++ edited resources
+#include "l.chs\afxres.rc"          // Standard components
+#endif
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+
