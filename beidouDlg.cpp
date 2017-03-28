@@ -44,6 +44,14 @@ unsigned char frame_receive[received_frame_size][2000]={0};
 /*************有线电话******************************/
 unsigned char frame_receive_WT[2000]={0};
 
+/***********运维板***************/
+unsigned char frame_board_check_YW[7+2]={'$','r','e','y','_'};//运维连接检测帧
+unsigned char frame_board_reset_YW[8+2]={'$','r','s','e','_'};//运维复位帧
+unsigned char frame_board_sound_YW[8+2]={'$','s','w','h','_'};//运维切换音频开关申请帧
+unsigned char frame_board_connect_YW[7+2]={'$','p','p','p','_'};//运维上位机两个软件相互查询帧
+unsigned char frame_board_scan_YW[7+2]={'$','s','c','a','_'};//运维频谱扫描，继电器控制帧
+
+#define TIMER2_MS 10000//定时器2中断间隔，10s查询一次子板的连接状况
 /////////////////////////////////////////////////////////////////////////////
 // CAboutDlg dialog used for App About
 
@@ -117,6 +125,9 @@ void CBeidouDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
 	//{{AFX_DATA_MAP(CBeidouDlg)
+	DDX_Control(pDX, IDC_STATIC_BOARD_LED_YW, m_board_led_YW);
+	DDX_Control(pDX, IDC_STATIC_YUNWEI, m_ctrlIconOpenoff_YW);
+	DDX_Control(pDX, IDC_COMBO_COMSELECT_YW, m_Com_YW);
 	DDX_Control(pDX, IDC_EDIT_FKXX, m_c_FKXX);
 	DDX_Control(pDX, IDC_STATIC_OPENOFF_WT, m_openoff_WT);
 	DDX_Control(pDX, IDC_COMBO_COMSELECT_WT, m_com_WT);
@@ -143,6 +154,7 @@ void CBeidouDlg::DoDataExchange(CDataExchange* pDX)
 	DDV_MinMaxInt(pDX, m_otherID, 0, 16777215);
 	DDX_Text(pDX, IDC_EDIT_TARGETNUM, m_target_number);
 	DDX_Control(pDX, IDC_MSCOMM_WT, m_comm_WT);
+	DDX_Control(pDX, IDC_MSCOMM_YW, m_comm_YW);
 	//}}AFX_DATA_MAP
 }
 
@@ -187,6 +199,8 @@ BEGIN_MESSAGE_MAP(CBeidouDlg, CDialog)
 	ON_BN_CLICKED(IDC_BUTTON_BACK, OnButtonBack)
 	ON_WM_DESTROY()
 	ON_EN_CHANGE(IDC_EDIT_FKXX, OnChangeEditFkxx)
+	ON_BN_CLICKED(IDC_BUTTON_CONNECTYUNWEI, OnButtonConnect_YW)
+	ON_CBN_SELENDOK(IDC_COMBO_COMSELECT_YW, OnSelendokComboComselectYw)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -228,15 +242,11 @@ BOOL CBeidouDlg::OnInitDialog()
 	m_DBaud=115200;
 
 	m_DCom_WT=2;
+	index_wakeup_times=0;
+	SerialPortOpenCloseFlag_YW=0;
 
 	m_hIconRed  = AfxGetApp()->LoadIcon(IDI_ICON_RED);
 	m_hIconOff	= AfxGetApp()->LoadIcon(IDI_ICON_OFF);
-	GetDlgItem(IDC_COMBO_COMSELECT)->SetWindowText(_T("COM1"));
-	GetDlgItem(IDC_COMBO_COMSELECT_WT)->SetWindowText(_T("COM2"));
-	GetDlgItem(IDC_COMBO_SPEED)->SetWindowText(_T("115200"));
-	GetDlgItem(IDC_COMBO_PARITY)->SetWindowText(_T("NONE"));
-	GetDlgItem(IDC_COMBO_DATABITS)->SetWindowText(_T("8"));
-	GetDlgItem(IDC_COMBO_STOPBITS)->SetWindowText(_T("1"));
 	GetDlgItem(IDC_COMBO_STOPBITS2)->SetWindowText(_T("代码"));
 
 	GetDlgItem(IDC_BUTTON_SYSTEMCHECK)->EnableWindow(FALSE);
@@ -247,37 +257,54 @@ BOOL CBeidouDlg::OnInitDialog()
 
 	GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
 	GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(FALSE);
-	UpdateData(FALSE);
+/****************************状态栏**************************************/
+	m_StatBar=new CStatusBarCtrl;//状态栏
+	RECT m_Rect; 
+	GetClientRect(&m_Rect); //获取对话框的矩形区域
+	m_Rect.top=m_Rect.bottom-20; //设置状态栏的矩形区域
+	m_StatBar->Create(WS_BORDER|WS_VISIBLE|CBRS_BOTTOM,m_Rect,this,3); 
+	
+	int nParts[5]= {220,440,660,880,-1}; //分割尺寸385
+	m_StatBar->SetParts(5, nParts); //分割状态栏
+	m_StatBar->SetText("有线电话：未连接",0,0); //第一个分栏加入"这是第一个指示器"
+	m_StatBar->SetText("卫星电话：未连接",1,0); //以下类似
+	m_StatBar->SetText("3G：未连接",2,0); //以下类似
+										/*也可使用以下方式加入指示器文字
+										m_StatBar.SetPaneText(0,"这是第一个指示器",0);
+										其他操作：m_StatBar->SetIcon(3,SetIcon(AfxGetApp()->LoadIcon(IDI_ICON3),FALSE));
+										//在第四个分栏中加入ID为IDI_ICON3的图标*/
+//	m_StatBar->SetIcon(2,SetIcon(AfxGetApp()->LoadIcon(IDI_ICON_OFF),FALSE));
+	m_StatBar->SetText("北斗：未连接",3,0); 
+	m_StatBar->SetText("运维板：未连接",4,0); 
+	m_StatBar->ShowWindow(SW_SHOW);
+	
 /********************1、北斗串口配置***********************************/	
 	m_comm.SetCommPort(1); //选择com1
 	m_comm.SetInputMode(1); //输入方式为二进制方式
-	m_comm.SetInBufferSize(10240); //设置输入缓冲区大小
-	m_comm.SetOutBufferSize(1024); //设置输出缓冲区大小
+	m_comm.SetInBufferSize(1024); //设置输入缓冲区大小
+	m_comm.SetOutBufferSize(10240); //设置输出缓冲区大小
 	m_comm.SetSettings("115200,n,8,1"); //波特率115200，无校验，8个数据位，1个停止位	 
 	m_comm.SetRThreshold(1); //参数1表示每当串口接收缓冲区中有多于或等于1个字符时将引发一个接收数据的OnComm事件
 	m_comm.SetInputLen(0); //设置当前接收区数据长度为0
 	//	 m_comm.GetInput();    //先预读缓冲区以清除残留数据
-	if(!m_comm.GetPortOpen())
-	{		 
-		//		m_comm.SetPortOpen(TRUE);//打开串口(此处不必打开，后边用“打开串口”按钮实现)
-	}
-	else
-		 MessageBox("串口无法打开！");
 /********************2、北斗串口配置***********************************/	
 	m_comm_WT.SetCommPort(2); //选择com2
 	m_comm_WT.SetInputMode(1); //输入方式为二进制方式
-	m_comm_WT.SetInBufferSize(10240); //设置输入缓冲区大小
-	m_comm_WT.SetOutBufferSize(1024); //设置输出缓冲区大小
+	m_comm_WT.SetInBufferSize(1024); //设置输入缓冲区大小
+	m_comm_WT.SetOutBufferSize(10240); //设置输出缓冲区大小
 	m_comm_WT.SetSettings("1200,n,8,1"); //波特率1200，无校验，8个数据位，1个停止位	 
-	m_comm_WT.SetRThreshold(1); //参数1表示每当串口接收缓冲区中有多于或等于1个字符时将引发一个接收数据的OnComm事件
+	m_comm_WT.SetRThreshold(8); //参数1表示每当串口接收缓冲区中有多于或等于1个字符时将引发一个接收数据的OnComm事件
 	m_comm_WT.SetInputLen(0); //设置当前接收区数据长度为0
 	//	 m_comm_WT.GetInput();    //先预读缓冲区以清除残留数据
-	if(!m_comm_WT.GetPortOpen())
-	{		 
-		//		m_comm_WT.SetPortOpen(TRUE);//打开串口(此处不必打开，后边用“打开串口”按钮实现)
-	}
-	else
-		 MessageBox("串口无法打开！");
+/********************3、运维串口配置***********************************/	
+	m_comm_YW.SetCommPort(3); //选择com3
+	m_comm_YW.SetInputMode(1); //输入方式为二进制方式
+	m_comm_YW.SetInBufferSize(1024); //设置输入缓冲区大小
+	m_comm_YW.SetOutBufferSize(10240); //设置输出缓冲区大小
+	m_comm_YW.SetSettings("115200,n,8,1"); //波特率1200，无校验，8个数据位，1个停止位	 
+	m_comm_YW.SetRThreshold(8); //参数1表示每当串口接收缓冲区中有多于或等于1个字符时将引发一个接收数据的OnComm事件
+	m_comm_YW.SetInputLen(0); //设置当前接收区数据长度为0
+	//	 m_comm_WT.GetInput();    //先预读缓冲区以清除残留数据
 /**********************************************************************/
 	frame_lock=0;//缓冲帧使用锁，0：允许用；1：禁止使用
 	for(int j=0;j<received_frame_size;j++){
@@ -325,6 +352,7 @@ BOOL CBeidouDlg::OnInitDialog()
 		/**********串口配置**********************/
 		::WritePrivateProfileString("ConfigInfo","com","0",".\\config_phonemessage.ini");//串口配置选项组
 		::WritePrivateProfileString("ConfigInfo","com_WT","1",".\\config_phonemessage.ini");//串口配置选项组
+		::WritePrivateProfileString("ConfigInfo","com_YW","2",".\\config_phonemessage.ini");//串口配置选项组
 		::WritePrivateProfileString("ConfigInfo","parity","0",".\\config_phonemessage.ini");
 		::WritePrivateProfileString("ConfigInfo","databits","0",".\\config_phonemessage.ini");
 		::WritePrivateProfileString("ConfigInfo","speed","5",".\\config_phonemessage.ini");
@@ -332,6 +360,7 @@ BOOL CBeidouDlg::OnInitDialog()
 		
 		::WritePrivateProfileString("ConfigInfo","com_r","1",".\\config_phonemessage.ini");//串口配置数值组
 		::WritePrivateProfileString("ConfigInfo","com_r_WT","2",".\\config_phonemessage.ini");//串口配置选项组
+		::WritePrivateProfileString("ConfigInfo","com_r_YW","3",".\\config_phonemessage.ini");//串口配置选项组
 		::WritePrivateProfileString("ConfigInfo","parity_r","N",".\\config_phonemessage.ini");
 		::WritePrivateProfileString("ConfigInfo","databits_r","8",".\\config_phonemessage.ini");
 		::WritePrivateProfileString("ConfigInfo","speed_r","115200",".\\config_phonemessage.ini");
@@ -346,10 +375,15 @@ BOOL CBeidouDlg::OnInitDialog()
 	strtmpReadConfig+=","+strBufferReadConfig;
 	m_DCom= (int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig);
 
-	GetPrivateProfileString("ConfigInfo","com_r_WT","1",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	GetPrivateProfileString("ConfigInfo","com_r_WT","2",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
 	strBufferReadConfig.ReleaseBuffer();
 	strtmpReadConfig+=","+strBufferReadConfig;
 	m_DCom_WT= (int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig);
+
+	GetPrivateProfileString("ConfigInfo","com_r_YW","3",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	strBufferReadConfig.ReleaseBuffer();
+	strtmpReadConfig+=","+strBufferReadConfig;
+	m_DCom_YW= (int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig);
 	
 	GetPrivateProfileString("ConfigInfo","parity_r","N",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
 	strBufferReadConfig.ReleaseBuffer();
@@ -372,32 +406,37 @@ BOOL CBeidouDlg::OnInitDialog()
 	m_DStopbits= (int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig);
 	
 	///////////////////////////////////////////////////////////////////////////
-	GetPrivateProfileString("ConfigInfo","com","1",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	GetPrivateProfileString("ConfigInfo","com","0",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
 	strBufferReadConfig.ReleaseBuffer();
 	strtmpReadConfig+=","+strBufferReadConfig;
 	((CComboBox*)GetDlgItem(IDC_COMBO_COMSELECT))->SetCurSel((int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig));//设置第n行内容为显示的内容。
 	
-	GetPrivateProfileString("ConfigInfo","com_WT","2",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	GetPrivateProfileString("ConfigInfo","com_WT","1",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
 	strBufferReadConfig.ReleaseBuffer();
 	strtmpReadConfig+=","+strBufferReadConfig;
 	((CComboBox*)GetDlgItem(IDC_COMBO_COMSELECT_WT))->SetCurSel((int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig));//设置第n行内容为显示的内容。
 
-	GetPrivateProfileString("ConfigInfo","parity","N",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	GetPrivateProfileString("ConfigInfo","com_YW","2",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	strBufferReadConfig.ReleaseBuffer();
+	strtmpReadConfig+=","+strBufferReadConfig;
+	((CComboBox*)GetDlgItem(IDC_COMBO_COMSELECT_YW))->SetCurSel((int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig));//设置第n行内容为显示的内容。
+
+	GetPrivateProfileString("ConfigInfo","parity","0",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
 	strBufferReadConfig.ReleaseBuffer();
 	strtmpReadConfig+=","+strBufferReadConfig;
 	((CComboBox*)GetDlgItem(IDC_COMBO_PARITY))->SetCurSel((int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig));//设置第n行内容为显示的内容。
 	
-	GetPrivateProfileString("ConfigInfo","databits","8",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	GetPrivateProfileString("ConfigInfo","databits","0",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
 	strBufferReadConfig.ReleaseBuffer();
 	strtmpReadConfig+=","+strBufferReadConfig;
 	((CComboBox*)GetDlgItem(IDC_COMBO_DATABITS))->SetCurSel((int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig));//设置第n行内容为显示的内容。
 	
-	GetPrivateProfileString("ConfigInfo","speed","115200",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	GetPrivateProfileString("ConfigInfo","speed","5",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
 	strBufferReadConfig.ReleaseBuffer();
 	strtmpReadConfig+=","+strBufferReadConfig;
 	((CComboBox*)GetDlgItem(IDC_COMBO_SPEED))->SetCurSel((int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig));//设置第n行内容为显示的内容。
 	
-	GetPrivateProfileString("ConfigInfo","stopbits","1",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	GetPrivateProfileString("ConfigInfo","stopbits","0",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
 	strBufferReadConfig.ReleaseBuffer();
 	strtmpReadConfig+=","+strBufferReadConfig;
 	((CComboBox*)GetDlgItem(IDC_COMBO_STOPBITS))->SetCurSel((int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig));//设置第n行内容为显示的内容。
@@ -465,6 +504,7 @@ BEGIN_EVENTSINK_MAP(CBeidouDlg, CDialog)
     //{{AFX_EVENTSINK_MAP(CBeidouDlg)
 	ON_EVENT(CBeidouDlg, IDC_MSCOMM1, 1 /* OnComm */, OnComm1, VTS_NONE)
 	ON_EVENT(CBeidouDlg, IDC_MSCOMM_WT, 1 /* OnComm */, OnComm_WT, VTS_NONE)
+	ON_EVENT(CBeidouDlg, IDC_MSCOMM_YW, 1 /* OnComm */, OnComm_YW, VTS_NONE)
 	//}}AFX_EVENTSINK_MAP
 END_EVENTSINK_MAP()
 
@@ -1793,4 +1833,245 @@ void CBeidouDlg::OnChangeEditFkxx()
 	
 	// TODO: Add your control notification handler code here
 	m_c_FKXX.LineScroll(m_c_FKXX.GetLineCount(),0);//让反馈信息输入框保持在最后一行
+}
+
+void CBeidouDlg::OnComm_YW() 
+{
+	// TODO: Add your control notification handler code here
+	VARIANT variant_inp;
+	COleSafeArray safearray_inp;
+	LONG len,k;
+	BYTE rxdata[2048]; //设置BYTE数组
+	CString strDisp="",strTmp="";
+	int frequency_point=0;//频率扫描的总的频点数
+	double frequency_buf=0;//频点计算
+	unsigned char frame_receive[100]={0};//接收缓冲区
+	
+	if((m_comm_YW.GetCommEvent()==2)) //事件值为2表示接收缓冲区内有字符
+	{
+		variant_inp=m_comm_YW.GetInput(); //读缓冲区
+		safearray_inp=variant_inp;  //VARIANT型变量转换为ColeSafeArray型变量
+		len=safearray_inp.GetOneDimSize(); //得到有效数据长度
+		for(k=0;k<len;k++)
+		{
+			safearray_inp.GetElement(&k,rxdata+k);//转换为BYTE型数组
+		}
+		
+		//			AfxMessageBox("OK",MB_OK,0);
+		//			frame=frame_len[frame_index_YW];
+		//			frame_lock=0;
+		//			frame_len[frame_index_YW]=0;
+		
+		frame_index_YW=0;
+		for(k=0;k<len;k++)//将数组转化为CString类型
+		{
+			BYTE bt=*(char*)(rxdata+k);    //字符型
+				if (rxdata[0]!='$')
+				{
+					return;//帧数据串错误
+				}
+			frame_receive[frame_index_YW]=bt;//frame_receive_YW
+			frame_index_YW++;
+// 			strTmp.Format("%c",bt);    //将字符送入临时变量strtemp存放
+// 			strDisp+=strTmp;  //加入接收编辑框对应字符串
+			
+		}
+//		AfxMessageBox(strDisp,MB_OK,0);
+
+	if (((flag_com_init_ack_YW==0)||(timer_board_disconnect_times_YW!=0))&&(frame_receive[1]=='r')&&(frame_receive[2]=='e')&&(frame_receive[3]=='y')&&(frame_receive[4]=='_')
+		&&(frame_receive[5]=='_')&&(frame_receive[6]==index_wakeup_times)&&(frame_receive[7]==XOR(frame_receive,7)))//首次连接握手，上位机软件接收时，不用避免$,\r,\n
+	{
+		flag_com_init_ack_YW=1;
+		m_board_led_YW.SetIcon(m_hIconRed);
+		GetDlgItem(IDC_STATIC_BOARDCONNECT2)->SetWindowText(" 运维板已连接！"); 
+		timer_board_disconnect_times_YW=0;//收到反馈则清零
+		UpdateData(FALSE);
+		
+	}else if ((flag_com_init_ack_YW==1)&&(frame_receive[1]=='r')&&(frame_receive[2]=='s')&&(frame_receive[3]=='e')&&(frame_receive[4]=='_')
+		&&(frame_receive[5]=='_')&&(frame_receive[6]==index_control_times)&&(frame_receive[8]==XOR(frame_receive,8)))//复位指定模块
+	{
+	
+		switch(frame_receive[7]-0x30){
+		case 1:
+			m_StatBar->SetText("运维板状态：有线电话模块复位完毕",4,0); 
+			break;
+		case 2:
+			m_StatBar->SetText("运维板状态：卫星电话模块复位完毕",4,0); 
+			break;
+		case 3:
+			m_StatBar->SetText("运维板状态：3G模块复位完毕",4,0); 
+			break;
+		case 4:
+			m_StatBar->SetText("运维板状态：北斗模块复位完毕",4,0); 
+			break;
+		case 5:
+			m_StatBar->SetText("运维板状态：广播板复位完毕",4,0); 
+			break;
+		case 6:
+			m_StatBar->SetText("运维板状态：其他模块复位完毕",4,0); 
+			break;
+		}
+
+	}else if ((flag_com_init_ack_YW==1)&&(frame_receive[1]=='s')&&(frame_receive[2]=='w')&&(frame_receive[3]=='h')&&(frame_receive[4]=='_')
+		&&(frame_receive[5]=='_')&&(frame_receive[6]==index_control_times)&&(frame_receive[8]==XOR(frame_receive,8)))//切换音频开关申请帧
+	{
+		if (frame_receive[7]==1)
+		{
+			m_StatBar->SetText("运维板状态：开关切换为1",4,0); 
+		} 
+		else if (frame_receive[7]==2)
+		{
+			m_StatBar->SetText("运维板状态：开关切换为2",4,0); 
+		}
+		else if (frame_receive[7]==3)
+		{
+			m_StatBar->SetText("运维板状态：开关切换为3",4,0); 
+		}
+		else if (frame_receive[7]==4)
+		{
+			m_StatBar->SetText("运维板状态：开关切换为4",4,0); 
+		}
+		
+
+
+	}else if ((flag_com_init_ack_YW==1)&&(frame_receive[1]=='s')&&(frame_receive[2]=='c')&&(frame_receive[3]=='a')&&(frame_receive[4]=='_')
+		&&(frame_receive[5]=='_')&&(frame_receive[6]==index_control_times)&&(frame_receive[7]==XOR(frame_receive,7)))//频谱扫描帧反馈信息
+	{
+		m_StatBar->SetText("运维板状态：配置为频谱扫描模式",4,0);
+		
+		
+	}else if ((flag_com_init_ack_YW==1)&&(frame_receive[1]=='r')&&(frame_receive[2]=='s')&&(frame_receive[3]=='t')&&(frame_receive[4]=='_')
+		&&(frame_receive[5]=='_')&&(frame_receive[6]==0)&&(frame_receive[7]==0)&&(frame_receive[8]==XOR(frame_receive,8)))//重传帧
+	{
+		//	AfxMessageBox("wakaka",MB_OK,0);
+		switch (index_resent_data_frame)
+		{
+		case 6://运维板复位帧校验出错，请求重传
+	//		OnButtonBoardReset();
+			break;
+		case 7://频谱扫描，继电器控制帧校验出错，请求重传
+//			OnButtonScan();
+			break;
+		case 3://
+
+			break;
+
+		}
+		m_StatBar->SetText("运维板状态：运维板请求重传",4,0);
+	}  
+	else
+	{
+		AfxMessageBox("运维板回传帧有错误！",MB_OK,0);
+	}
+	UpdateData(FALSE);
+	}
+}
+
+void CBeidouDlg::OnButtonConnect_YW() 
+{
+	// TODO: Add your control notification handler code here
+	char buff[2];
+	CString string1="",string2="";
+	buff[1]='\0';
+	buff[0]=m_DParity;
+	string1.Format(_T("%d"),m_DBaud);
+	string1+=",";
+	string2=buff;
+	string1+=string2;
+	string1+=",";
+	string2.Format(_T("%d"),m_DDatabits); 
+	string1+=string2;
+	string1+=",";
+	string2.Format(_T("%d"),m_DStopbits);
+	string1+=string2;
+/*
+	CString   tmp;
+	tmp.Format( "%d ",string1);
+	MessageBox( "config:"+string1);
+*/
+	if(SerialPortOpenCloseFlag_YW==FALSE)
+	{
+		SerialPortOpenCloseFlag_YW=TRUE;
+
+		//以下是串口的初始化配置
+		if(m_comm_YW.GetPortOpen())//打开端口前的检测，先关，再开
+			MessageBox("can not open serial port");
+//			m_comm.SetPortOpen(FALSE);	//	
+		m_comm_YW.SetCommPort(m_DCom_YW); //选择端口，默认是com3
+		m_comm_YW.SetSettings((LPSTR)(LPCTSTR)string1); //波特率115200，无校验，8个数据位，1个停止位
+		if(!m_comm_YW.GetPortOpen())
+		{			
+			m_comm_YW.SetPortOpen(TRUE);//打开串口
+			GetDlgItem(IDC_BUTTON_CONNECTYUNWEI)->SetWindowText("关闭串口");
+			m_StatBar->SetText("运维板状态：串口已打开",4,0); //以下类似
+
+			m_ctrlIconOpenoff_YW.SetIcon(m_hIconRed);
+			UpdateData();
+
+			if (index_wakeup_times<200)
+			{
+				index_wakeup_times++;
+				if ((index_wakeup_times==0x0d)||(index_wakeup_times==0x24))
+				{
+					index_wakeup_times++;
+				}
+			} 
+			else
+			{
+				index_wakeup_times=0;
+			}
+			frame_board_check_YW[5]=index_wakeup_times;
+			frame_board_check_YW[6]=XOR(frame_board_check_YW,6);
+			if ((frame_board_check_YW[6]=='$')||(frame_board_check_YW[6]==0x0d))
+			{
+				frame_board_check_YW[6]++;//如果异或结果是$或0x0d，则值加一
+			}
+			frame_board_check_YW[7]='\r';
+			frame_board_check_YW[8]='\n';
+			CByteArray Array;
+			Array.RemoveAll();
+			Array.SetSize(7+2);
+									
+			for (int i=0;i<(7+2);i++)
+			{
+				Array.SetAt(i,frame_board_check_YW[i]);
+			}
+
+			if(m_comm_YW.GetPortOpen())
+			{
+				m_comm_YW.SetOutput(COleVariant(Array));//发送数据
+			}
+			index_resent_data_frame=0;//连接帧不支持重传机制
+			SetTimer(6,(TIMER2_MS+3000),NULL);//没有处在频谱扫描阶段才打开定期查询，10+3秒(与广播板的查询在时间上错开)查询一次子板是否保持连接。恢复硬件连接时，可以自动连接
+		}
+		else
+			MessageBox("无法打开运维板串口，请重试！");	 
+	}
+	else
+	{
+		SerialPortOpenCloseFlag_YW=FALSE;
+		GetDlgItem(IDC_BUTTON_CONNECTYUNWEI)->SetWindowText("打开串口");
+		m_StatBar->SetText("运维板状态：串口已关闭",4,0); //以下类似
+		m_ctrlIconOpenoff_YW.SetIcon(m_hIconOff);
+		m_board_led_YW.SetIcon(m_hIconOff);
+		GetDlgItem(IDC_STATIC_BOARDCONNECT2)->SetWindowText(" 运维板未连接！");
+		flag_com_init_ack_YW=0;//运维板未连接
+		m_comm_YW.SetPortOpen(FALSE);//关闭串口
+		KillTimer(6);
+
+ 	}
+}
+
+void CBeidouDlg::OnSelendokComboComselectYw() 
+{
+	// TODO: Add your control notification handler code here
+	m_DCom_YW=m_Com_YW.GetCurSel()+1;
+	UpdateData();
+	
+	CString strTemp;
+	strTemp.Format(_T("%d"),m_DCom_YW-1);
+	::WritePrivateProfileString("ConfigInfo","com_YW",strTemp,".\\config_phonemessage.ini");
+	
+	strTemp.Format(_T("%d"),m_DCom_YW);
+	::WritePrivateProfileString("ConfigInfo","com_r_YW",strTemp,".\\config_phonemessage.ini");
 }

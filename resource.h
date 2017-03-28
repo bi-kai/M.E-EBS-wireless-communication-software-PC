@@ -19,6 +19,8 @@
 #define IDC_COMBO_STOPBITS2             1012
 #define IDC_COMBO_COMSELECT_WT          1013
 #define IDC_OPENCLOSEPORT_WT            1014
+#define IDC_COMBO_COMSELECT_YW          1015
+#define IDC_BUTTON_CONNECTYUNWEI        1016
 #define IDC_EDIT_RECEIVEMSG             1022
 #define IDC_BUTTON_SEND                 1023
 #define IDC_BUTTON_PHONE                1024
@@ -63,6 +65,10 @@
 #define IDC_MSCOMM_WT                   1060
 #define IDC_BUTTON_BACK2                1061
 #define IDC_BUTTON_CLEAR_NUM            1061
+#define IDC_STATIC_YUNWEI               1062
+#define IDC_MSCOMM_YW                   1063
+#define IDC_STATIC_BOARD_LED_YW         1064
+#define IDC_STATIC_BOARDCONNECT2        1066
 
 // Next default values for new objects
 // 
@@ -70,7 +76,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        132
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         1063
+#define _APS_NEXT_CONTROL_VALUE         1067
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

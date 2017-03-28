@@ -41,6 +41,7 @@ public:
 //	int state_message[2];//[0]：3G短信状态；[1]：北斗短信状态；
 
 	int m_DCom;
+	int m_DCom_YW;//运维板串口号
 	int m_DStopbits;
 	char m_DParity;
 	int m_DDatabits;
@@ -54,17 +55,31 @@ public:
 	bool frame_flag[5];//帧准等待处理标志位
 	unsigned int framelen;//帧长计数器
 	bool comm_init;//串口初次初始化标志位
-	
+	CStatusBarCtrl *m_StatBar;//状态栏
 	/***************有线电话**************************/
 	int WT_state;//有线电话状态。0：空闲；1：摘机；2：拨号；3：通话；4：；
 	int m_DCom_WT;
 	CString call_in_number;//打进来的电话号码
 	bool flag_PW_busy;//有线电话状态。1:打电话中;0：空闲中；
 	CString send_string;//被叫后，传号的号码，以#结束
+	/***************运维******************************/
+	BOOL SerialPortOpenCloseFlag_YW;//运维串口打开关闭标志位
+	bool flag_com_init_ack_YW;//上位机软件查询运维板，运维板对查询信息的应答标志位。1:连接成功；0：连接失败；
+	unsigned char index_wakeup_times;//连接帧发送次数计数器，上下位机通信，保证每帧数据都不同
+	unsigned char index_scan_times;//频谱扫描帧发送次数计数器，上下位机通信，保证每帧数据都不同
+	unsigned char index_control_times;//控制帧发送次数计数器，上下位机通信，保证每帧数据都不同
+	int index_resent_data_frame;//重传帧编号，0：空闲(查询帧：查询帧不使用出错重传机制，因为是不停的查询的)；1~3：唤醒帧编号；4：报警帧编号；5：认证帧编号；6：运维板复位帧编号；7：频谱扫描，继电器控制帧；
+	int frame_index_YW;//运维串口接收缓冲帧的索引
+	int timer_board_disconnect_times_YW;//定时器6统计尝试连接次数，达到3次则判断运维板未连接
+
+
 
 // Dialog Data
 	//{{AFX_DATA(CBeidouDlg)
 	enum { IDD = IDD_BEIDOU_DIALOG };
+	CStatic	m_board_led_YW;
+	CStatic	m_ctrlIconOpenoff_YW;
+	CComboBox	m_Com_YW;
 	CEdit	m_c_FKXX;
 	CStatic	m_openoff_WT;
 	CComboBox	m_com_WT;
@@ -89,6 +104,7 @@ public:
 	int		m_otherID;
 	CString	m_target_number;
 	CMSComm	m_comm_WT;
+	CMSComm	m_comm_YW;
 	//}}AFX_DATA
 
 	// ClassWizard generated virtual function overrides
@@ -148,6 +164,9 @@ protected:
 	afx_msg void OnButtonBack();
 	afx_msg void OnDestroy();
 	afx_msg void OnChangeEditFkxx();
+	afx_msg void OnComm_YW();
+	afx_msg void OnButtonConnect_YW();
+	afx_msg void OnSelendokComboComselectYw();
 	DECLARE_EVENTSINK_MAP()
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
