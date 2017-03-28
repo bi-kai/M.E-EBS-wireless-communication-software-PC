@@ -178,6 +178,7 @@ protected:
 	afx_msg void OnModuleReset();
 	afx_msg void OnSoundSwitch();
 	afx_msg void OnButtonClearmsg();
+	afx_msg void OnChangeEditSendmsg();
 	DECLARE_EVENTSINK_MAP()
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()

@@ -28,7 +28,7 @@ Type=0
 HeaderFile=beidouDlg.h
 ImplementationFile=beidouDlg.cpp
 Filter=D
-LastObject=IDC_EDIT_RECEIVEMSG
+LastObject=IDC_EDIT_BASESTATES
 BaseClass=CDialog
 VirtualFilter=dWC
 

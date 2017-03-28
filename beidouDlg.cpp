@@ -144,7 +144,7 @@ void CBeidouDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_MSCOMM1, m_comm);
 	DDX_Text(pDX, IDC_EDIT_RECEIVEMSG, m_showmsg);
 	DDX_Text(pDX, IDC_EDIT_SENDMSG, m_sendmsg);
-	DDV_MaxChars(pDX, m_sendmsg, 600);
+	DDV_MaxChars(pDX, m_sendmsg, 210);
 	DDX_Text(pDX, IDC_EDIT_CARDNUMBER, m_cardnumber);
 	DDX_Text(pDX, IDC_EDIT_CATEGORY, m_category);
 	DDX_Text(pDX, IDC_EDIT_CARDSTATES, m_cardstate);
@@ -204,6 +204,7 @@ BEGIN_MESSAGE_MAP(CBeidouDlg, CDialog)
 	ON_BN_CLICKED(IDC_MODULE_RESET, OnModuleReset)
 	ON_BN_CLICKED(IDC_SOUND_SWITCH, OnSoundSwitch)
 	ON_BN_CLICKED(IDC_BUTTON_CLEARMSG, OnButtonClearmsg)
+	ON_EN_CHANGE(IDC_EDIT_SENDMSG, OnChangeEditSendmsg)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -606,8 +607,8 @@ void CBeidouDlg::OnComm1()
 			if(frame_index==received_frame_size) frame_index=0;
 			
 		}
-		m_showmsg+=strDisp;
-		m_showmsg+="\r\n";
+//		m_showmsg+=strDisp;
+//		m_showmsg+="\r\n";
 		UpdateData(FALSE);
 	}	
 }
@@ -651,7 +652,7 @@ void CBeidouDlg::OnOpencloseport()
 			m_comm.SetPortOpen(TRUE);//打开串口
 			GetDlgItem(IDC_OPENCLOSEPORT)->SetWindowText("关闭串口");
 			m_ctrlIconOpenoff.SetIcon(m_hIconRed);
-
+			m_StatBar->SetText("北斗：已连接",3,0);
 			GetDlgItem(IDC_BUTTON_ICCHECK)->EnableWindow(TRUE);
 			GetDlgItem(IDC_BUTTON_CLEAR)->EnableWindow(TRUE);
 			GetDlgItem(IDC_BUTTON_SYSTEMCHECK)->EnableWindow(TRUE);
@@ -680,9 +681,9 @@ void CBeidouDlg::OnOpencloseport()
 	{
 		SerialPortOpenCloseFlag=FALSE;
 		GetDlgItem(IDC_OPENCLOSEPORT)->SetWindowText("打开串口");
-			m_ctrlIconOpenoff.SetIcon(m_hIconOff);
+		m_ctrlIconOpenoff.SetIcon(m_hIconOff);
 		m_comm.SetPortOpen(FALSE);//关闭串口
-
+		m_StatBar->SetText("北斗：已断开",3,0);
 		GetDlgItem(IDC_BUTTON_SYSTEMCHECK)->EnableWindow(FALSE);
 		GetDlgItem(IDC_BUTTON_ICCHECK)->EnableWindow(FALSE);
 		GetDlgItem(IDC_BUTTON3_POWERCHECK)->EnableWindow(FALSE);
@@ -898,7 +899,7 @@ void CBeidouDlg::OnButtonSendMsg()
 			int len=strHex(m_sendmsg,hexdata,250);
 			CByteArray Array;
 			Array.RemoveAll();
-			int total_len=len+18;
+			int total_len=len+19;
 			Array.SetSize(total_len);
 
 			frame_MSG_check[5]=total_len/256;//数据包总长度
@@ -912,22 +913,24 @@ void CBeidouDlg::OnButtonSendMsg()
 			frame_MSG_check[13]=(unsigned char)(target_id%256);
 
 			frame_MSG_check[14]=8*len/256;//电文长度
-			frame_MSG_check[15]=8*len%256;
+			frame_MSG_check[15]=8*len%256+8;
 
 			frame_MSG_check[16]=0;//是否应答
+			frame_MSG_check[17]=0x4A;//混编时此处需要填入0x4A
 
-			for (int i=0; i<17; i++)
+			for (int i=0; i<18; i++)
 			{
 				Array.SetAt(i,frame_MSG_check[i]);
 			}
 			int k=0;
-			for (int j=17; j<(len+17); j++)
+			for (int j=18; j<(len+18); j++)
 			{
 				Array.SetAt(j,hexdata[k]);
 				frame_MSG_check[j]=hexdata[k];
 				k++;
 			}
 			frame_MSG_check[total_len-1]=XOR(frame_MSG_check,total_len-1);
+
 			Array.SetAt(total_len-1,frame_MSG_check[total_len-1]);
 			if(m_comm.GetPortOpen())
 			{
@@ -1037,20 +1040,20 @@ void CBeidouDlg::DeIcc(unsigned char *BUFF)
 	if ((comm_init==0)&&(_Useraddr!=0))//初次初始化串口，将卡号提出，完成各帧
 	{
 		comm_init=1;
-//		frame_POWER_check[7]=BUFF[10];
-//		frame_POWER_check[8]=BUFF[11];
-//		frame_POWER_check[9]=BUFF[12];
+//		frame_POWER_check[7]=0;
+//		frame_POWER_check[8]=0;
+//		frame_POWER_check[9]=0;
 //		frame_POWER_check[10]=0;
 //		frame_POWER_check[11]=XOR(frame_POWER_check,11);
 
-		frame_SYS_check[7]=BUFF[7];
-		frame_SYS_check[8]=BUFF[8];
-		frame_SYS_check[9]=BUFF[9];
-		frame_SYS_check[10]=XOR(frame_SYS_check,10);
+//		frame_SYS_check[7]=0;
+//		frame_SYS_check[8]=0;
+//		frame_SYS_check[9]=0;
+//		frame_SYS_check[10]=XOR(frame_SYS_check,10);
 
-		frame_MSG_check[7]=BUFF[7];
-		frame_MSG_check[8]=BUFF[8];
-		frame_MSG_check[9]=BUFF[9];
+		frame_MSG_check[7]=0;
+		frame_MSG_check[8]=0;
+		frame_MSG_check[9]=0;
 		
 		GetDlgItem(IDC_BUTTON_SYSTEMCHECK)->EnableWindow(TRUE);
 		GetDlgItem(IDC_BUTTON3_POWERCHECK)->EnableWindow(TRUE);
@@ -1059,6 +1062,8 @@ void CBeidouDlg::DeIcc(unsigned char *BUFF)
 
 	m_cardnumber=_Useraddr; 
 	m_category=IccFrq;
+	m_cardstate ="正常";
+	m_basestate="正常";
 	UpdateData(FALSE);
 } 
 
@@ -1215,7 +1220,7 @@ void CBeidouDlg::DeMsg(unsigned char *BUFF)
  	len = ((int)BUFF[16])*pow(2,8)+((int)BUFF[17]);
  	for(i=0;i<(int)(len/8);i++)
  	{
- 		rec_text[i]=BUFF[18+i];
+ 		rec_text[i]=BUFF[19+i];
  	}
 
 	for (int j=0;j<(BUFF[5]*256+BUFF[6]);j++)
@@ -1231,7 +1236,7 @@ void CBeidouDlg::DeMsg(unsigned char *BUFF)
 	m_showmsg+="从";
 	strTmp.Format("%d",Recvaddr);
 	m_showmsg+=strTmp;
-	m_showmsg+="收到信息：";
+	m_showmsg+="收到信息：\r\n";
 	m_showmsg+=rec_text;
 //	m_showmsg+="\t\t数据包：";
 //	m_showmsg+=strDisp;
@@ -2406,4 +2411,15 @@ void CBeidouDlg::OnButtonClearmsg()
 	m_FKXX="";
 	UpdateData(FALSE);
 
+}
+
+void CBeidouDlg::OnChangeEditSendmsg() 
+{
+	// TODO: If this is a RICHEDIT control, the control will not
+	// send this notification unless you override the CDialog::OnInitDialog()
+	// function and call CRichEditCtrl().SetEventMask()
+	// with the ENM_CHANGE flag ORed into the mask.
+	
+	// TODO: Add your control notification handler code here
+	UpdateData(TRUE);
 }
