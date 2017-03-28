@@ -44,9 +44,7 @@ public:
 	int m_DStopbits;
 	char m_DParity;
 	int m_DDatabits;
-	LONG m_DBaud;
-	
-	int m_DCom_WT;
+	LONG m_DBaud;	
 	
 	BOOL SerialPortOpenCloseFlag;//北斗串口打开关闭标志位
 	BOOL SerialPortOpenCloseFlag_WT;//有线电话串口打开关闭标志位
@@ -59,10 +57,15 @@ public:
 	
 	/***************有线电话**************************/
 	int WT_state;//有线电话状态。0：空闲；1：摘机；2：拨号；3：通话；4：；
+	int m_DCom_WT;
+	CString call_in_number;//打进来的电话号码
+	bool flag_PW_busy;//有线电话状态。1:打电话中;0：空闲中；
+	CString send_string;//被叫后，传号的号码，以#结束
 
 // Dialog Data
 	//{{AFX_DATA(CBeidouDlg)
 	enum { IDD = IDD_BEIDOU_DIALOG };
+	CEdit	m_c_FKXX;
 	CStatic	m_openoff_WT;
 	CComboBox	m_com_WT;
 	CProgressCtrl	m_timer;
@@ -144,7 +147,7 @@ protected:
 	afx_msg void OnButtonJing();
 	afx_msg void OnButtonBack();
 	afx_msg void OnDestroy();
-	afx_msg void OnChar(UINT nChar, UINT nRepCnt, UINT nFlags);
+	afx_msg void OnChangeEditFkxx();
 	DECLARE_EVENTSINK_MAP()
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()

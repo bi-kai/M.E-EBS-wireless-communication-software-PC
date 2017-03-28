@@ -104,7 +104,7 @@ CBeidouDlg::CBeidouDlg(CWnd* pParent /*=NULL*/)
 	m_basestate = _T("");
 	m_FKXX = _T("");
 	m_otherID = 0;
-	m_target_number = _T("");
+	m_target_number = _T("0");
 	//}}AFX_DATA_INIT
 	// Note that LoadIcon does not require a subsequent DestroyIcon in Win32
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
@@ -117,6 +117,7 @@ void CBeidouDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
 	//{{AFX_DATA_MAP(CBeidouDlg)
+	DDX_Control(pDX, IDC_EDIT_FKXX, m_c_FKXX);
 	DDX_Control(pDX, IDC_STATIC_OPENOFF_WT, m_openoff_WT);
 	DDX_Control(pDX, IDC_COMBO_COMSELECT_WT, m_com_WT);
 	DDX_Control(pDX, IDC_PROGRESS_TIMER, m_timer);
@@ -185,7 +186,7 @@ BEGIN_MESSAGE_MAP(CBeidouDlg, CDialog)
 	ON_BN_CLICKED(IDC_BUTTON_JING, OnButtonJing)
 	ON_BN_CLICKED(IDC_BUTTON_BACK, OnButtonBack)
 	ON_WM_DESTROY()
-	ON_WM_CHAR()
+	ON_EN_CHANGE(IDC_EDIT_FKXX, OnChangeEditFkxx)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -245,6 +246,7 @@ BOOL CBeidouDlg::OnInitDialog()
 	GetDlgItem(IDC_BUTTON_CLEAR)->EnableWindow(FALSE);
 
 	GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
+	GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(FALSE);
 	UpdateData(FALSE);
 /********************1、北斗串口配置***********************************/	
 	m_comm.SetCommPort(1); //选择com1
@@ -314,9 +316,97 @@ BOOL CBeidouDlg::OnInitDialog()
 	rectMiddle.top=rectLarge.top;
 	rectMiddle.right=rectSeparator.right+30;
 	rectMiddle.bottom=rectLarge.bottom;
+
+	/**************************INI配置*******************************/
+	CFileFind finder;   //查找是否存在ini文件，若不存在，则生成一个新的默认设置的ini文件，这样就保证了我们更改后的设置每次都可用
+	BOOL ifFind = finder.FindFile(_T(".\\config_phonemessage.ini"));
+	if(!ifFind)
+	{
+		/**********串口配置**********************/
+		::WritePrivateProfileString("ConfigInfo","com","0",".\\config_phonemessage.ini");//串口配置选项组
+		::WritePrivateProfileString("ConfigInfo","com_WT","1",".\\config_phonemessage.ini");//串口配置选项组
+		::WritePrivateProfileString("ConfigInfo","parity","0",".\\config_phonemessage.ini");
+		::WritePrivateProfileString("ConfigInfo","databits","0",".\\config_phonemessage.ini");
+		::WritePrivateProfileString("ConfigInfo","speed","5",".\\config_phonemessage.ini");
+		::WritePrivateProfileString("ConfigInfo","stopbits","0",".\\config_phonemessage.ini");
+		
+		::WritePrivateProfileString("ConfigInfo","com_r","1",".\\config_phonemessage.ini");//串口配置数值组
+		::WritePrivateProfileString("ConfigInfo","com_r_WT","2",".\\config_phonemessage.ini");//串口配置选项组
+		::WritePrivateProfileString("ConfigInfo","parity_r","N",".\\config_phonemessage.ini");
+		::WritePrivateProfileString("ConfigInfo","databits_r","8",".\\config_phonemessage.ini");
+		::WritePrivateProfileString("ConfigInfo","speed_r","115200",".\\config_phonemessage.ini");
+		::WritePrivateProfileString("ConfigInfo","stopbits_r","1",".\\config_phonemessage.ini");		
+	}
+
+	/**********串口配置**********************/
+	CString strBufferReadConfig,strtmpReadConfig;
+
+	GetPrivateProfileString("ConfigInfo","com_r","1",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	strBufferReadConfig.ReleaseBuffer();
+	strtmpReadConfig+=","+strBufferReadConfig;
+	m_DCom= (int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig);
+
+	GetPrivateProfileString("ConfigInfo","com_r_WT","1",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	strBufferReadConfig.ReleaseBuffer();
+	strtmpReadConfig+=","+strBufferReadConfig;
+	m_DCom_WT= (int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig);
+	
+	GetPrivateProfileString("ConfigInfo","parity_r","N",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	strBufferReadConfig.ReleaseBuffer();
+	strtmpReadConfig+=","+strBufferReadConfig;
+	m_DParity= (char)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig);
+	
+	GetPrivateProfileString("ConfigInfo","databits_r","8",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	strBufferReadConfig.ReleaseBuffer();
+	strtmpReadConfig+=","+strBufferReadConfig;
+	m_DDatabits= (int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig);
+	
+	GetPrivateProfileString("ConfigInfo","speed_r","115200",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	strBufferReadConfig.ReleaseBuffer();
+	strtmpReadConfig+=","+strBufferReadConfig;
+	m_DBaud= (long)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig);
+	
+	GetPrivateProfileString("ConfigInfo","stopbits_r","1",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	strBufferReadConfig.ReleaseBuffer();
+	strtmpReadConfig+=","+strBufferReadConfig;
+	m_DStopbits= (int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig);
+	
+	///////////////////////////////////////////////////////////////////////////
+	GetPrivateProfileString("ConfigInfo","com","1",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	strBufferReadConfig.ReleaseBuffer();
+	strtmpReadConfig+=","+strBufferReadConfig;
+	((CComboBox*)GetDlgItem(IDC_COMBO_COMSELECT))->SetCurSel((int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig));//设置第n行内容为显示的内容。
+	
+	GetPrivateProfileString("ConfigInfo","com_WT","2",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	strBufferReadConfig.ReleaseBuffer();
+	strtmpReadConfig+=","+strBufferReadConfig;
+	((CComboBox*)GetDlgItem(IDC_COMBO_COMSELECT_WT))->SetCurSel((int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig));//设置第n行内容为显示的内容。
+
+	GetPrivateProfileString("ConfigInfo","parity","N",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	strBufferReadConfig.ReleaseBuffer();
+	strtmpReadConfig+=","+strBufferReadConfig;
+	((CComboBox*)GetDlgItem(IDC_COMBO_PARITY))->SetCurSel((int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig));//设置第n行内容为显示的内容。
+	
+	GetPrivateProfileString("ConfigInfo","databits","8",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	strBufferReadConfig.ReleaseBuffer();
+	strtmpReadConfig+=","+strBufferReadConfig;
+	((CComboBox*)GetDlgItem(IDC_COMBO_DATABITS))->SetCurSel((int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig));//设置第n行内容为显示的内容。
+	
+	GetPrivateProfileString("ConfigInfo","speed","115200",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	strBufferReadConfig.ReleaseBuffer();
+	strtmpReadConfig+=","+strBufferReadConfig;
+	((CComboBox*)GetDlgItem(IDC_COMBO_SPEED))->SetCurSel((int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig));//设置第n行内容为显示的内容。
+	
+	GetPrivateProfileString("ConfigInfo","stopbits","1",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	strBufferReadConfig.ReleaseBuffer();
+	strtmpReadConfig+=","+strBufferReadConfig;
+	((CComboBox*)GetDlgItem(IDC_COMBO_STOPBITS))->SetCurSel((int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig));//设置第n行内容为显示的内容。
+	
+	UpdateData(FALSE);
 	/*********************************************************************/
 	switch_state=0;//打电话
 	WT_state=0;//电话机状态，初始化置为空闲
+	flag_PW_busy=0;
 	
 	
 	return TRUE;  // return TRUE  unless you set the focus to a control
@@ -562,48 +652,80 @@ void CBeidouDlg::OnSelendokComboComselect()
 	app->m_nCom=m_Com.GetCurSel()+1;
 	m_DCom=app->m_nCom;
 	UpdateData();	
+
+	CString strTemp;
+	strTemp.Format(_T("%d"),m_DCom-1);
+	::WritePrivateProfileString("ConfigInfo","com",strTemp,".\\config_phonemessage.ini");
+	
+	strTemp.Format(_T("%d"),m_DCom);
+	::WritePrivateProfileString("ConfigInfo","com_r",strTemp,".\\config_phonemessage.ini");
 }
 
 void CBeidouDlg::OnSelendokComboSpeed() 
 {
 	// TODO: Add your control notification handler code here
 	int i=m_Speed.GetCurSel();
+
+	CString strTemp;
+	strTemp.Format(_T("%d"),i);
+	::WritePrivateProfileString("ConfigInfo","speed",strTemp,".\\config_phonemessage.ini");
+
 	switch(i)
 	{
+// 	case 0:
+// 		i=300;
+// 		break;
+// 	case 1:
+// 		i=600;
+// 		break;
+// 	case 2:
+// 		i=1200;
+// 		break;
+// 	case 3:
+// 		i=2400;
+// 		break;
+// 	case 4:
+// 		i=4800;
+// 		break;
+// 	case 5:
+// 		i=9600;
+// 		break;
+// 	case 6:
+// 		i=19200;
+// 		break;
+// 	case 7:
+// 		i=38400;
+// 		break;
+// 	case 8:
+// 		i=43000;
+// 		break;
+// 	case 9:
+// 		i=56000;
+// 		break;
+// 	case 10:
+// 		i=57600;
+// 		break;
+// 	case 11:
+// 		i=115200;
+// 		break;
+// 	default:
+// 		break;
 	case 0:
-		i=300;
-		break;
-	case 1:
-		i=600;
-		break;
-	case 2:
-		i=1200;
-		break;
-	case 3:
-		i=2400;
-		break;
-	case 4:
-		i=4800;
-		break;
-	case 5:
 		i=9600;
 		break;
-	case 6:
+	case 1:
 		i=19200;
 		break;
-	case 7:
-		i=38400;
-		break;
-	case 8:
+	case 2:
 		i=43000;
 		break;
-	case 9:
+	case 3:
 		i=56000;
 		break;
-	case 10:
+	case 4:
 		i=57600;
 		break;
-	case 11:
+	case 5:
 		i=115200;
 		break;
 	default:
@@ -614,6 +736,10 @@ void CBeidouDlg::OnSelendokComboSpeed()
 	app->m_nBaud=i;
 	m_DBaud=app->m_nBaud;
 	UpdateData();	
+
+	strTemp.Format(_T("%d"),m_DBaud);
+	::WritePrivateProfileString("ConfigInfo","speed_r",strTemp,".\\config_phonemessage.ini");
+
 }
 
 void CBeidouDlg::OnSelendokComboParity() 
@@ -621,6 +747,11 @@ void CBeidouDlg::OnSelendokComboParity()
 	// TODO: Add your control notification handler code here
 	char temp;
 	int i=m_Parity.GetCurSel();
+
+	CString strTemp;
+	strTemp.Format(_T("%d"),i);
+	::WritePrivateProfileString("ConfigInfo","parity",strTemp,".\\config_phonemessage.ini");
+
 	switch(i)
 	{
 	case 0:
@@ -637,12 +768,21 @@ void CBeidouDlg::OnSelendokComboParity()
 	app->m_cParity=temp;
 	m_DParity=app->m_cParity;
 	UpdateData();	
+
+	strTemp.Format(_T("%c"),m_DParity);
+	::WritePrivateProfileString("ConfigInfo","parity_r",strTemp,".\\config_phonemessage.ini");
+
 }
 
 void CBeidouDlg::OnSelendokComboDatabits() 
 {
 	// TODO: Add your control notification handler code here
 	int i=m_DataBits.GetCurSel();
+
+	CString strTemp;
+	strTemp.Format(_T("%d"),i);
+	::WritePrivateProfileString("ConfigInfo","databits",strTemp,".\\config_phonemessage.ini");
+
 	switch(i)
 	{
 	case 0:
@@ -658,13 +798,21 @@ void CBeidouDlg::OnSelendokComboDatabits()
 	CBeidouApp *app = (CBeidouApp *)AfxGetApp(); //生成指向应用程序类的指针
 	app->m_nDatabits=i;
 	m_DDatabits=app->m_nDatabits;
-	UpdateData();	
+	UpdateData();
+	
+	strTemp.Format(_T("%d"),m_DDatabits);
+	::WritePrivateProfileString("ConfigInfo","databits_r",strTemp,".\\config_phonemessage.ini");
 }
 
 void CBeidouDlg::OnSelendokComboStopbits() 
 {
 	// TODO: Add your control notification handler code here
 	int i=m_StopBits.GetCurSel();
+
+	CString strTemp;
+	strTemp.Format(_T("%d"),i);
+	::WritePrivateProfileString("ConfigInfo","stopbits",strTemp,".\\config_phonemessage.ini");
+
 	switch(i)
 	{
 	case 0:
@@ -678,6 +826,9 @@ void CBeidouDlg::OnSelendokComboStopbits()
 	app->m_nStopbits=i;
 	m_DStopbits=app->m_nStopbits;
 	UpdateData();
+	
+	strTemp.Format(_T("%d"),m_DStopbits);
+	::WritePrivateProfileString("ConfigInfo","stopbits_r",strTemp,".\\config_phonemessage.ini");
 }
 
 void CBeidouDlg::OnButtonSendMsg() 
@@ -1136,6 +1287,10 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 	{
 		OnButtonCall();//使摘机动作对用户透明，先操作一次摘机再调用一次，用于拨号
 		KillTimer(3);
+	}else if(nIDEvent==4){//对方未拨通，而挂机，将拨打电话按钮上的文本重置
+		GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
+		flag_PW_busy=0;//标志挂断状态
+		KillTimer(4);
 	}
 	
 	CDialog::OnTimer(nIDEvent);
@@ -1212,6 +1367,8 @@ void CBeidouDlg::OnComm_WT()
 	CString strDisp="",strTmp="";
 	int frequency_point=0;//频率扫描的总的频点数
 	double frequency_buf=0;//频点计算
+	int frame_index_WT;//帧的索引
+	
 	
 	if((m_comm_WT.GetCommEvent()==2)) //事件值为2表示接收缓冲区内有字符
 	{
@@ -1223,41 +1380,39 @@ void CBeidouDlg::OnComm_WT()
 		{
 			safearray_inp.GetElement(&k,rxdata+k);//转换为BYTE型数组
 		}
-		frame_index=0;
+		frame_index_WT=0;
 		for(k=0;k<len;k++)//将数组转化为CString类型
 		{
 			BYTE bt=*(char*)(rxdata+k);    //字符型
-				if (rxdata[0]!='$')
-				{
-					return;//帧数据串错误
-				}
-			frame_receive_WT[frame_index]=bt;
-			frame_index++;			
+			frame_receive_WT[frame_index_WT]=bt;
+			frame_index_WT++;			
 		}
-//		AfxMessageBox(strDisp,MB_OK,0);
-		char *str_calloff = "ATS2";	//挂机提示
-		char *str_ring = "ATRing";	//振铃,显示来电提示
-		char *str_callon = "ATCID";	//来电提示,显示电话号码	
-		char *str_sigvoice = "ATN";	//传号提示,一次传一位
-		char *str_listen = "ATZ";	//摘机提示,进行号码和时间的提取
-
 
 	if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='N'))//检测是否为DTMF信号
 	{
-		strDisp=frame_receive_WT;
-		m_FKXX+=strDisp;
-		m_FKXX+="\r\n";
-		UpdateData(FALSE);
+		if(frame_receive_WT[3]!='#'){
+			CString tmp;
+			tmp.Format("%c",frame_receive_WT[3]);
+			send_string+=tmp;
+		}else{//把接收到的串传给自动应答函数
+			m_FKXX+="\r\n传号串:";
+			m_FKXX+=send_string;
+			m_FKXX+="\r\n";
+			send_string="";
+			UpdateData(FALSE);
+		}
 		
 	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='C')&&(frame_receive_WT[3]=='I')&&(frame_receive_WT[4]=='D'))//检测是否为来电提示
 	{
 		strDisp=frame_receive_WT+5;
-		m_FKXX+=strDisp;
-		m_FKXX+="\r\n";
+		call_in_number=strDisp;//开始拼接来电号码
 
 	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='S')&&(frame_receive_WT[3]=='2'))//检测是否为挂机提示
 	{
+		m_FKXX+="\r\n";
 		m_FKXX+="对方挂机";
+		m_FKXX+="\r\n";
+		OnButtonCall();//对方挂机后，我也挂机，电话状态设置为空闲
 		char lpOutBuffer[] = {'A','T','H','\r','\n'};//接着上传ATH指令进行挂机
 		CByteArray Array;
 		Array.RemoveAll();
@@ -1272,17 +1427,26 @@ void CBeidouDlg::OnComm_WT()
 			m_comm_WT.SetOutput(COleVariant(Array));//发送数据
 		}
 
-		GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("打电话");
+		GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
+		flag_PW_busy=0;
+		WT_state=0;
 
 	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='R')&&(frame_receive_WT[3]=='i')&&(frame_receive_WT[4]=='n')&&(frame_receive_WT[5]=='g'))//检测是否为来电提示音
 	{
 		m_FKXX+="Ring";
+		m_FKXX+="\t";
+		GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("接听电话");
 		PlaySound(".//ring.wav", NULL, SND_FILENAME|SND_ASYNC);
+		flag_PW_busy=1;
+		send_string="";//传号字符串清空，准备接收传号
+		SetTimer(4,5000,NULL);//振铃5秒后未再次接收到振铃，认为是本机未摘机，而对方挂机
 
 	}else if (rxdata[0] >='0' && rxdata[0]<='9')//检测是否是电话号码
 	{
 		strDisp=frame_receive_WT;
-		m_FKXX+=strDisp;
+		call_in_number+=strDisp;
+		m_FKXX+="\r\n对方号码是：";
+		m_FKXX+=call_in_number;
 		m_FKXX+="\r\n";
 	} 
 	else
@@ -1335,23 +1499,33 @@ void CBeidouDlg::OnSelendokComboComselectWT()
 	// TODO: Add your control notification handler code here
 	m_DCom_WT=m_com_WT.GetCurSel()+1;
 	UpdateData();	
+
+	CString strTemp;
+	strTemp.Format(_T("%d"),m_DCom_WT-1);
+	::WritePrivateProfileString("ConfigInfo","com_WT",strTemp,".\\config_phonemessage.ini");
+	
+	strTemp.Format(_T("%d"),m_DCom_WT);
+	::WritePrivateProfileString("ConfigInfo","com_r_WT",strTemp,".\\config_phonemessage.ini");
 }
 
 void CBeidouDlg::OnButtonClearNum() 
 {
 	// TODO: Add your control notification handler code here
-	m_target_number="";
+	m_target_number="0";
 	UpdateData(FALSE);
 	GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
+	GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(FALSE);
 	GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
 }
 
 void CBeidouDlg::OnButtonCall() 
 {
 	// TODO: Add your control notification handler code here
-	if(m_target_number==""){
-		AfxMessageBox("请输入对方号码");
-	}else{
+		if((flag_PW_busy==0)&&(m_target_number=="0")){
+			AfxMessageBox("请先输入对方号码");
+			return;
+		}
+
 		if(WT_state==0){//摘机
 			char lpOutBuffer[] = {'A','T','Z','\r','\n'};//接着上传ATH指令进行挂机
 			CByteArray Array;
@@ -1366,15 +1540,24 @@ void CBeidouDlg::OnButtonCall()
 			{
 				m_comm_WT.SetOutput(COleVariant(Array));//发送数据
 			}
-			GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
-			SetTimer(3,500,NULL);//500ms后再调用本函数进行拨号，使摘机动作对用户透明，先操作一次摘机再调用一次，用于拨号
-			WT_state=2;//该拨号啦
-
+			if (flag_PW_busy==1)//接电话
+			{
+				WT_state=3;//该挂机啦
+				GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
+			} 
+			else//打电话
+			{
+				GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("正在拨号...");
+				SetTimer(3,100,NULL);//500ms后再调用本函数进行拨号，使摘机动作对用户透明，先操作一次摘机再调用一次，用于拨号
+				WT_state=2;//该拨号啦
+			}
+			
+			
 		}else if (WT_state==3)//挂机
 		{
 			char lpOutBuffer[] = {'A','T','H','\r','\n'};//接着上传ATH指令进行挂机
 			CByteArray Array;
-			Array.RemoveAll();
+			Array.RemoveAll();    
 			Array.SetSize(5);		
 			
 			for (int i=0; i<5; i++)
@@ -1387,6 +1570,7 @@ void CBeidouDlg::OnButtonCall()
 			}
 			GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
 			WT_state=0;//挂机，空闲中
+			flag_PW_busy=0;
 		} 
 		else if(WT_state==2)//拨号
 		{
@@ -1397,7 +1581,7 @@ void CBeidouDlg::OnButtonCall()
 			char *lpOutBuffer = (char *)malloc((len+5)*sizeof(char));
 			if(lpOutBuffer == NULL)
 				MessageBox("Allocated failed!");
-
+			
 			memcpy(lpOutBuffer+3,m_target_number,len);
 			lpOutBuffer[0] = 'A';
 			lpOutBuffer[1] = 'T';
@@ -1415,11 +1599,12 @@ void CBeidouDlg::OnButtonCall()
 			}
 			GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
 			WT_state=3;//通话中
-		}
-			
-	}
-}
+		}//end of WT_state
+	 
 
+
+}
+//flag_PW_busy=0;
 
 void CBeidouDlg::OnChangeEditTargetnum() 
 {
@@ -1429,7 +1614,7 @@ void CBeidouDlg::OnChangeEditTargetnum()
 	// with the ENM_CHANGE flag ORed into the mask.
 	
 	// TODO: Add your control notification handler code here
-	if (m_target_number=="")
+	if (m_target_number=="0")
 	{
 		GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
 	}else{
@@ -1455,12 +1640,18 @@ void CBeidouDlg::OnButton2()
 
 void CBeidouDlg::chuanhao(char num)
 {
+	
 	char lpOutBuffer[] = {'A','T','B','0','\r','\n'};//接着上传ATH指令进行挂机
 	lpOutBuffer[3]=num;
 	CByteArray Array;
 	Array.RemoveAll();
 	Array.SetSize(5);		
 	
+	if (m_target_number=="0")
+	{
+		m_target_number=m_target_number.Left(m_target_number.GetLength()-1);
+	}
+
 	for (int i=0; i<5; i++)
 	{
 		Array.SetAt(i,lpOutBuffer[i]);
@@ -1470,6 +1661,7 @@ void CBeidouDlg::chuanhao(char num)
 		m_comm_WT.SetOutput(COleVariant(Array));//发送数据
 	}
 	if(SerialPortOpenCloseFlag_WT)GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
+	GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(TRUE);
 }
 
 void CBeidouDlg::OnButton3() 
@@ -1555,17 +1747,15 @@ void CBeidouDlg::OnButtonJing()
 void CBeidouDlg::OnButtonBack() 
 {
 	// TODO: Add your control notification handler code here
-	if (m_target_number=="")
-	{
-		GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
-		GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(FALSE);
-	} 
-	else
-	{
 		m_target_number=m_target_number.Left(m_target_number.GetLength()-1);
-		UpdateData(FALSE);
-//		AfxMessageBox(m_target_number);
+		if (m_target_number.GetLength()==0)
+		{
+			m_target_number+="0";
+			GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
+			GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(FALSE);
 	}
+		UpdateData(FALSE);
+
 }
 
 void CBeidouDlg::OnDestroy() 
@@ -1573,7 +1763,8 @@ void CBeidouDlg::OnDestroy()
 	CDialog::OnDestroy();
 	
 	// TODO: Add your message handler code here
-	
+	HANDLE hself = GetCurrentProcess();
+ 	TerminateProcess(hself, 0);
 }
 
 //DEL void CBeidouDlg::OnCaptureChanged(CWnd *pWnd) 
@@ -1585,10 +1776,21 @@ void CBeidouDlg::OnDestroy()
 //DEL 	CDialog::OnCaptureChanged(pWnd);
 //DEL }
 
-void CBeidouDlg::OnChar(UINT nChar, UINT nRepCnt, UINT nFlags) 
+//DEL void CBeidouDlg::OnChar(UINT nChar, UINT nRepCnt, UINT nFlags) 
+//DEL {
+//DEL 	// TODO: Add your message handler code here and/or call default
+//DEL 	HANDLE hself = GetCurrentProcess();
+//DEL // 	TerminateProcess(hself, 0);
+//DEL 	CDialog::OnChar(nChar, nRepCnt, nFlags);
+//DEL }
+
+void CBeidouDlg::OnChangeEditFkxx() 
 {
-	// TODO: Add your message handler code here and/or call default
-	HANDLE hself = GetCurrentProcess();
-// 	TerminateProcess(hself, 0);
-	CDialog::OnChar(nChar, nRepCnt, nFlags);
+	// TODO: If this is a RICHEDIT control, the control will not
+	// send this notification unless you override the CDialog::OnInitDialog()
+	// function and call CRichEditCtrl().SetEventMask()
+	// with the ENM_CHANGE flag ORed into the mask.
+	
+	// TODO: Add your control notification handler code here
+	m_c_FKXX.LineScroll(m_c_FKXX.GetLineCount(),0);//让反馈信息输入框保持在最后一行
 }
