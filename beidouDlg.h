@@ -4,8 +4,12 @@
 #include "mscomm.h"
 //}}AFX_INCLUDES
 
+
 #if !defined(AFX_BEIDOUDLG_H__A64D1192_0B9D_4863_8924_CCA2D32F12B0__INCLUDED_)
 #define AFX_BEIDOUDLG_H__A64D1192_0B9D_4863_8924_CCA2D32F12B0__INCLUDED_
+
+#include "3G.h"
+
 
 #if _MSC_VER > 1000
 #pragma once
@@ -31,7 +35,7 @@
 
 #define QUERY_INTERVAL 3000//定时器2中断间隔，10s查询一次子板的连接状况
 #define QUERY_WT 7000//有线电话基于查询间隔的偏移时间
-#define QUERY_3G 10000//3G基于查询间隔的偏移时间
+#define QUERY_3G 15000//3G基于查询间隔的偏移时间
 #define QUERY_BD 6000//北斗基于查询间隔的偏移时间
 #define QUERY_ST 3000//卫星电话基于查询间隔的偏移时间
 #define QUERY_YW 1500//运维板基于查询间隔的偏移时间
@@ -43,6 +47,9 @@ class CBeidouDlg : public CDialog
 {
 // Construction
 public:
+	void OnClearAll();
+	SMSInfoALL ReadSMS(char *pSrc,SMSInfoALL smsb, int nTxRxFlag);
+	void SendAtCmd(CString strAT,int nATID);//3G电话发送AT指令
 	void sound_switch(int index);//音频开关手动切换
 	void module_reset(int index);//功能模块复位
 	void chuanhao(char num);//有线电话传号
@@ -69,6 +76,7 @@ public:
 	int m_DCom;//北斗串口号
 	int m_DCom_WT;//有线电话串口号
 	int m_DCom_YW;//运维板串口号
+	int m_DCom_3G;//3G串口号
 	int m_DStopbits;
 	char m_DParity;
 	int m_DDatabits;
@@ -102,12 +110,39 @@ public:
 	bool modulereset;//手动复位按钮的触发器.
 	bool soundswitch;//音频信号源手动切换
 	/***************3G电话**************************/
-
+	SMSInfoALL sms;
+	CString strLongSMSText;		
+	CString strSMSIndex;//SMS在存储器中的位置
+	BOOL bIsRecord;//是否在录音，默认为FALSE
+	BOOL bIsCaller;//是否为主叫，TRUE为主叫（默认），FALSE为被叫	
+	int nEnglishLenth;    //英文字符数
+    int nChineseLenth;    //中文字符数
+    int nTotalLenth;//总共字符数		
+	char chCollect[16];//用于存放传号数据
+	int nCount;//用于搜集传号的，index	
+	char chPDU[1024];//用于存放PDU数据
+	char cReceiveData[2048];//用于存放接收数据	
+	int nATCmdID;//AT指令的ID，用于串口响应 默认为0， 分三段：1,1~10，初始化，2、11~20通话，3、21~30
+	int nCallFlags;//用于标志call的状态，默认为0，拨号为1，接听为2，挂机为3
+	int nSMSCount;//用于指明，当前存储短信的条数
+	BOOL bIsNewSMS;//标志新短信，true表示接收到新短信，false(默认)无
+	
+	BOOL SerialPortOpenCloseFlag_3G;//有线电话串口打开关闭标志位
+	int G3_state;//有线电话状态。0：空闲；1：摘机；2：拨号；3：通话；4：；
+	CString call_in_number_3G;//打进来的电话号码
+	bool flag_3G_in_busy;//有线电话接听电话状态。1:接电话中;0：空闲中；
+	bool flag_3G_out_busy;//有线电话拨出电话状态。1:拨出电话中;0：空闲中；
+	CString send_string_3G;//被叫后，传号的号码，以#结束
+	int timer_board_disconnect_times_3G;//定时器10,11统计尝试连接次数，达到3次则判断有线电话未连接
+//	bool flag_com_init_ack_3G;//上位机软件查询3G，3G对查询信息的应答标志位。1:连接成功；0：连接失败；
 
 
 // Dialog Data
 	//{{AFX_DATA(CBeidouDlg)
 	enum { IDD = IDD_BEIDOU_DIALOG };
+	CStatic	m_board_led_3G;
+	CStatic	m_ctrlIconOpenoff_3G;
+	CComboBox	m_Com_3G;
 	CStatic	m_board_led_BD;
 	CStatic	m_board_led_WT;
 	CStatic	m_board_led_YW;
@@ -134,6 +169,7 @@ public:
 	CString	m_target_number;
 	CMSComm	m_comm_WT;
 	CMSComm	m_comm_YW;
+	CMSComm	m_comm_3G;
 	//}}AFX_DATA
 
 	// ClassWizard generated virtual function overrides
@@ -196,6 +232,9 @@ protected:
 	afx_msg void OnSoundSwitch();
 	afx_msg void OnButtonClearmsg();
 	afx_msg void OnChangeEditSendmsg();
+	afx_msg void OnButtonConnect_3G();
+	afx_msg void OnSelendokComboComselect3G();
+	afx_msg void OnComm_3G();
 	DECLARE_EVENTSINK_MAP()
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
