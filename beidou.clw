@@ -28,7 +28,7 @@ Type=0
 HeaderFile=beidouDlg.h
 ImplementationFile=beidouDlg.cpp
 Filter=D
-LastObject=IDC_BUTTON_1
+LastObject=IDC_EDIT_TARGETNUM
 BaseClass=CDialog
 VirtualFilter=dWC
 
@@ -123,5 +123,5 @@ Control69=IDC_STATIC,button,1342177287
 Control70=IDC_COMBO_COMSELECT_WT,combobox,1344274434
 Control71=IDC_OPENCLOSEPORT_WT,button,1342242816
 Control72=IDC_STATIC_OPENOFF_WT,static,1342177283
-Control73=IDC_BUTTON_BACK2,button,1342242816
+Control73=IDC_BUTTON_CLEAR_NUM,button,1342242816
 

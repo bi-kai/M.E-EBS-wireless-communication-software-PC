@@ -18,6 +18,7 @@ class CBeidouDlg : public CDialog
 {
 // Construction
 public:
+	void chuanhao(char num);
 	int strHex(CString str, unsigned char * data,int num);
 	void DeFKXX(unsigned char *BUFF);
 	void DeMsg(unsigned char *BUFF);
@@ -38,6 +39,26 @@ public:
 	int switch_state;//切换状态标志位，0：打电话；1：发短信；
 //	int state_phone[3];//打电话功能模块可用状态标志。[0]：有线电话可用状态标志0：不可用，1：可用；[1]：3G电话状态；[2]：卫星电话状态；
 //	int state_message[2];//[0]：3G短信状态；[1]：北斗短信状态；
+
+	int m_DCom;
+	int m_DStopbits;
+	char m_DParity;
+	int m_DDatabits;
+	LONG m_DBaud;
+	
+	int m_DCom_WT;
+	
+	BOOL SerialPortOpenCloseFlag;//北斗串口打开关闭标志位
+	BOOL SerialPortOpenCloseFlag_WT;//有线电话串口打开关闭标志位
+	BOOL frame_lock;
+	unsigned int frame_len[5];//各个缓冲帧的长度
+	int frame_index;//帧的索引
+	bool frame_flag[5];//帧准等待处理标志位
+	unsigned int framelen;//帧长计数器
+	bool comm_init;//串口初次初始化标志位
+	
+	/***************有线电话**************************/
+	int WT_state;//有线电话状态。0：空闲；1：摘机；2：拨号；3：通话；4：；
 
 // Dialog Data
 	//{{AFX_DATA(CBeidouDlg)
@@ -75,26 +96,7 @@ public:
 
 // Implementation
 private:
-	int m_DCom;
-	int m_DStopbits;
-	char m_DParity;
-	int m_DDatabits;
-	LONG m_DBaud;
 
-	int m_DCom_WT;
-
-	BOOL SerialPortOpenCloseFlag;//北斗串口打开关闭标志位
-	BOOL SerialPortOpenCloseFlag_WT;//有线电话串口打开关闭标志位
-	BOOL frame_lock;
-	unsigned int frame_len[5];//各个缓冲帧的长度
-	int frame_index;//帧的索引
-	bool frame_flag[5];//帧准等待处理标志位
-	unsigned int framelen;//帧长计数器
-	bool comm_init;//串口初次初始化标志位
-	
-/***************有线电话**************************/
-	CTime WT_Time;		//CTime变量,获取当前时间
-	CString WT_str_show;
 
 protected:
 	HICON m_hIcon;
@@ -125,6 +127,24 @@ protected:
 	afx_msg void OnComm_WT();
 	afx_msg void OnOpencloseportWT();
 	afx_msg void OnSelendokComboComselectWT();
+	afx_msg void OnButtonClearNum();
+	afx_msg void OnButtonCall();
+	afx_msg void OnChangeEditTargetnum();
+	afx_msg void OnButton1();
+	afx_msg void OnButton2();
+	afx_msg void OnButton3();
+	afx_msg void OnButton4();
+	afx_msg void OnButton5();
+	afx_msg void OnButton6();
+	afx_msg void OnButton8();
+	afx_msg void OnButton7();
+	afx_msg void OnButton9();
+	afx_msg void OnButton10();
+	afx_msg void OnButtonXing();
+	afx_msg void OnButtonJing();
+	afx_msg void OnButtonBack();
+	afx_msg void OnDestroy();
+	afx_msg void OnChar(UINT nChar, UINT nRepCnt, UINT nFlags);
 	DECLARE_EVENTSINK_MAP()
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()

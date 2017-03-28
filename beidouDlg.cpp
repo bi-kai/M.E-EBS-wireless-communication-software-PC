@@ -41,6 +41,8 @@ unsigned char frame_MSG_check[100]={0x24,0x4D,0x73,0x67,0x5F};
 unsigned char frame_receive[received_frame_size][2000]={0};
 //unsigned char frame_IC_check[11]={0x24,0x49,0x63,0x63,0x5F,0x00,0x0B,0x00,0x00,0x00,0x39};
 
+/*************有线电话******************************/
+unsigned char frame_receive_WT[2000]={0};
 
 /////////////////////////////////////////////////////////////////////////////
 // CAboutDlg dialog used for App About
@@ -166,6 +168,24 @@ BEGIN_MESSAGE_MAP(CBeidouDlg, CDialog)
 	ON_BN_CLICKED(IDC_BUTTON_MESSAGE, OnButtonMessage)
 	ON_BN_CLICKED(IDC_OPENCLOSEPORT_WT, OnOpencloseportWT)
 	ON_CBN_SELENDOK(IDC_COMBO_COMSELECT_WT, OnSelendokComboComselectWT)
+	ON_BN_CLICKED(IDC_BUTTON_CLEAR_NUM, OnButtonClearNum)
+	ON_BN_CLICKED(IDC_BUTTON_CALL, OnButtonCall)
+	ON_EN_CHANGE(IDC_EDIT_TARGETNUM, OnChangeEditTargetnum)
+	ON_BN_CLICKED(IDC_BUTTON_1, OnButton1)
+	ON_BN_CLICKED(IDC_BUTTON_2, OnButton2)
+	ON_BN_CLICKED(IDC_BUTTON_3, OnButton3)
+	ON_BN_CLICKED(IDC_BUTTON_4, OnButton4)
+	ON_BN_CLICKED(IDC_BUTTON_5, OnButton5)
+	ON_BN_CLICKED(IDC_BUTTON_6, OnButton6)
+	ON_BN_CLICKED(IDC_BUTTON_8, OnButton8)
+	ON_BN_CLICKED(IDC_BUTTON_7, OnButton7)
+	ON_BN_CLICKED(IDC_BUTTON_9, OnButton9)
+	ON_BN_CLICKED(IDC_BUTTON_10, OnButton10)
+	ON_BN_CLICKED(IDC_BUTTON_XING, OnButtonXing)
+	ON_BN_CLICKED(IDC_BUTTON_JING, OnButtonJing)
+	ON_BN_CLICKED(IDC_BUTTON_BACK, OnButtonBack)
+	ON_WM_DESTROY()
+	ON_WM_CHAR()
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -286,7 +306,7 @@ BOOL CBeidouDlg::OnInitDialog()
 	rectSmall.right=rectSeparator.right+27;
 	rectSmall.bottom=rectLarge.bottom;
 	SetWindowPos(NULL,0,0,rectSmall.Width(),rectSmall.Height(),SWP_NOMOVE|SWP_NOZORDER);
-	
+	GetDlgItem(IDC_BUTTON_CALL)->ShowWindow(SW_SHOW);
 
 	GetDlgItem(IDC_STATIC_MESSAGE)->GetWindowRect(&rectSeparator);
 	rectMiddle.left=rectSeparator.left;
@@ -295,7 +315,7 @@ BOOL CBeidouDlg::OnInitDialog()
 	rectMiddle.bottom=rectLarge.bottom;
 	/*********************************************************************/
 	switch_state=0;//打电话
-	
+	WT_state=0;//电话机状态，初始化置为空闲
 	
 	
 	return TRUE;  // return TRUE  unless you set the focus to a control
@@ -681,9 +701,9 @@ void CBeidouDlg::OnButtonSendMsg()
 			frame_MSG_check[5]=total_len/256;//数据包总长度
 			frame_MSG_check[6]=total_len%256;
 
-			frame_MSG_check[10]=m_otherID/pow(2, 16);//对方ID
-			frame_MSG_check[11]=m_otherID/pow(2, 8);
-			frame_MSG_check[12]=m_otherID%256;
+			frame_MSG_check[10]=(unsigned char)(m_otherID/pow(2, 16));//对方ID
+			frame_MSG_check[11]=(unsigned char)(m_otherID/pow(2, 8));
+			frame_MSG_check[12]=(unsigned char)(m_otherID%256);
 
 			frame_MSG_check[13]=0x46;//默认使用“代码”方式发送数据
 
@@ -1111,6 +1131,10 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 		KillTimer(2);	
        }
 		UpdateData(FALSE);
+	}else if (nIDEvent==3)
+	{
+		OnButtonCall();//使摘机动作对用户透明，先操作一次摘机再调用一次，用于拨号
+		KillTimer(3);
 	}
 	
 	CDialog::OnTimer(nIDEvent);
@@ -1145,8 +1169,10 @@ void CBeidouDlg::OnButtonSet()
 		if (switch_state==0)//打电话
 		{
 			SetWindowPos(NULL,0,0,rectSmall.Width(),rectSmall.Height(),SWP_NOMOVE|SWP_NOZORDER);
+			GetDlgItem(IDC_BUTTON_CALL)->ShowWindow(SW_SHOW);
 		}else if(switch_state==1){//发短信
 			SetWindowPos(NULL,0,0,rectMiddle.Width(),rectMiddle.Height(),SWP_NOMOVE|SWP_NOZORDER);
+			GetDlgItem(IDC_BUTTON_CALL)->ShowWindow(SW_HIDE);
 		}
 		
 	}
@@ -1162,6 +1188,7 @@ void CBeidouDlg::OnButtonPhone()
 	// TODO: Add your control notification handler code here
 	switch_state=0;//打电话
  	SetWindowPos(NULL,0,0,rectSmall.Width(),rectSmall.Height(),SWP_NOMOVE|SWP_NOZORDER);
+	GetDlgItem(IDC_BUTTON_CALL)->ShowWindow(SW_SHOW);
  	SetDlgItemText(IDC_BUTTON_SET,"配置");
 }
 
@@ -1170,155 +1197,99 @@ void CBeidouDlg::OnButtonMessage()
 	// TODO: Add your control notification handler code here
 	switch_state=1;//发短信
 	SetWindowPos(NULL,0,0,rectMiddle.Width(),rectMiddle.Height(),SWP_NOMOVE|SWP_NOZORDER);
+	GetDlgItem(IDC_BUTTON_CALL)->ShowWindow(SW_HIDE);
 	SetDlgItemText(IDC_BUTTON_SET,"配置");
 }
 
 void CBeidouDlg::OnComm_WT() 
 {
 	// TODO: Add your control notification handler code here
-// 	VARIANT variant_inp;
-// 	COleSafeArray safearray_inp;
-// 	LONG len,k;
-// 	BYTE rxdata[2048]; //设置BYTE数组
-// 	CString strDisp="",strTmp="";
-// 	int frequency_point=0;//频率扫描的总的频点数
-// 	double frequency_buf=0;//频点计算
-// 	
-// 	if((m_comm.GetCommEvent()==2)) //事件值为2表示接收缓冲区内有字符
-// 	{
-// 		variant_inp=m_comm.GetInput(); //读缓冲区
-// 		safearray_inp=variant_inp;  //VARIANT型变量转换为ColeSafeArray型变量
-// 		len=safearray_inp.GetOneDimSize(); //得到有效数据长度
-// 		for(k=0;k<len;k++)
-// 		{
-// 			safearray_inp.GetElement(&k,rxdata+k);//转换为BYTE型数组
-// 		}
-// 		frame_index=0;
-// 		for(k=0;k<len;k++)//将数组转化为CString类型
-// 		{
-// 			BYTE bt=*(char*)(rxdata+k);    //字符型
-// 				if (rxdata[0]!='$')
-// 				{
-// 					return;//帧数据串错误
-// 				}
-// 			frame_receive[frame_index]=bt;
-// 			frame_index++;			
-// 		}
-// //		AfxMessageBox(strDisp,MB_OK,0);
-// 
-// 	if (((flag_com_init_ack==0)||(timer_board_disconnect_times!=0))&&(frame_receive[1]=='r')&&(frame_receive[2]=='d')&&(frame_receive[3]=='y')&&(frame_receive[4]=='_')
-// 		&&(frame_receive[5]=='_')&&(frame_receive[6]==index_wakeup_times)&&(frame_receive[9]==XOR(frame_receive,9)))//首次连接握手，上位机软件接收时，不用避免$,\r,\n
-// 	{
-// 		flag_com_init_ack=1;
-// 		m_board_led.SetIcon(m_hIconRed);
-// 		GetDlgItem(IDC_STATIC_BOARDCONNECT)->SetWindowText("板卡已连接!"); 
-// 		GetDlgItem(IDC_BUTTON_WAKEUP)->EnableWindow(TRUE);
-// 		GetDlgItem(IDC_BUTTON_VOICE)->EnableWindow(TRUE);
-// 		GetDlgItem(IDC_BUTTON_SCAN)->EnableWindow(TRUE);
-// 		GetDlgItem(IDC_COMBO_ALARM_TYPE)->EnableWindow(TRUE);
-// 		GetDlgItem(IDC_BUTTON_IDENTIFY)->EnableWindow(TRUE);
-// 		GetDlgItem(IDC_SLIDER_POWER)->EnableWindow(TRUE);
-// 		timer_board_disconnect_times=0;//收到反馈则清零
-// 		m_frequency_native=FREQUENCY_TERMINAL_START+(double)frame_receive[7]/10;
-// 		CString strTemp;
-// 		strTemp.Format(_T("%.1f"),m_frequency_native);
-// 		::WritePrivateProfileString("ConfigInfo","frequency_native",strTemp,".\\config_radiostation.ini");
-// 
-// 		strTemp.Format(_T("%.1f"),frame_receive[8]);
-// 		::WritePrivateProfileString("ConfigInfo","POWER_SELECT",strTemp,".\\config_radiostation.ini");
-// 		
-// 		m_POWER_SELECT.SetPos(frame_receive[8]);
-// 		m_power_num.Format("%d",frame_receive[8]);
-// 		UpdateData(FALSE);
-// 		
-// 	}else if ((flag_com_init_ack==1)&&(frame_receive[1]=='f')&&(frame_receive[2]=='r')&&(frame_receive[3]=='e')&&(frame_receive[4]=='_')
-// 		&&(frame_receive[5]=='_')&&(frame_receive[6]==index_scan_times)&&(frame_receive[10]==XOR(frame_receive,10)))//频谱扫描
-// 	{
-// 		frequency_buf=76.0+(double)frame_receive[7]/10;
-// 		strTmp.Format("%.1f",frequency_buf);
-// 		m_rssi_list.InsertItem(frame_receive[7],strTmp);//插入行
-// 		strTmp.Format("%d",frame_receive[8]);
-// 		m_rssi_list.SetItemText(frame_receive[7],1,strTmp);//设置数据
-// 		strTmp.Format("%d",frame_receive[9]);
-// 		m_rssi_list.SetItemText(frame_receive[7],2,strTmp);//设置数据
-// 		m_rssi_list.SendMessage(WM_VSCROLL,SB_BOTTOM,NULL); //随数据滚动
-// 		m_StatBar->SetText("软件及板卡状态：数据接收...",1,0);
-// 
-// 	}else if ((flag_com_init_ack==1)&&(frame_receive[1]=='c')&&(frame_receive[2]=='o')&&(frame_receive[3]=='n')&&(frame_receive[4]=='_')
-// 		&&(frame_receive[5]=='_')&&(frame_receive[6]==index_control_times)&&(frame_receive[8]==XOR(frame_receive,8)))//控制帧
-// 	{
-// 		if (frame_receive[7]==2)
-// 		{
-// 			AfxMessageBox("下位机频点配置成功！",MB_OK,0);
-// 		} 
-// 		else if (frame_receive[7]==3)
-// 		{
-// 			AfxMessageBox("开始广播",MB_OK,0);
-// 		}else if (frame_receive[7]==4)
-// 		{
-// 			AfxMessageBox("停止广播",MB_OK,0);
-// 		}
-// 		
-// 
-// 
-// 	}else if ((flag_com_init_ack==1)&&(frame_receive[1]=='d')&&(frame_receive[2]=='a')&&(frame_receive[3]=='t')&&(frame_receive[4]=='_')
-// 		&&(frame_receive[5]=='_')&&(frame_receive[6]==index_data_times)&&(frame_receive[7]==XOR(frame_receive,7)))//数据帧反馈信息
-// 	{
-// 		switch (index_resent_data_frame)
-// 		{
-// 		case 1://广播唤醒帧 
-// 			m_StatBar->SetText("软件及板卡状态：广播帧已发送",1,0);
-// //			m_frame_send_state.SetIcon(m_hIconRed);
-// 			break;
-// 		case 2://单播唤醒帧
-// 			m_StatBar->SetText("软件及板卡状态：单播帧已发送",1,0);
-// //			m_frame_send_state.SetIcon(m_hIconRed);
-// 			break;
-// 		case 3://组播唤醒帧
-// 			m_StatBar->SetText("软件及板卡状态：组播帧已发送",1,0);
-// //			m_frame_send_state.SetIcon(m_hIconRed);
-// 			break;
-// 		case 4://控制指令帧
-// 			m_StatBar->SetText("软件及板卡状态：控制帧已发送",1,0);
-// //			m_frame_send_state.SetIcon(m_hIconRed);
-// 			break;
-// 		case 5://认证帧
-// 			m_StatBar->SetText("软件及板卡状态：认证帧已发送",1,0);
-// //			m_frame_send_state.SetIcon(m_hIconRed);
-// 			break;
-// 		}
-// 		
-// 
-// 	}else if ((flag_com_init_ack==1)&&(frame_receive[1]=='r')&&(frame_receive[2]=='s')&&(frame_receive[3]=='t')&&(frame_receive[4]=='_')
-// 		&&(frame_receive[5]=='_')&&(frame_receive[6]==0)&&(frame_receive[7]==0)&&(frame_receive[8]==XOR(frame_receive,8)))//重传帧
-// 	{
-// 	//	AfxMessageBox("wakaka",MB_OK,0);
-// 		switch (index_resent_data_frame)
-// 		{
-// 		case 1://广播唤醒帧
-// 			OnButtonWakeup(); 
-// 			break;
-// 		case 2://单播唤醒帧
-// 			OnButtonWakeup(); 
-// 			break;
-// 		case 3://组播唤醒帧
-// 			OnButtonWakeup(); 
-// 			break;
-// 		case 4://控制指令帧
-// 			terminal_control_index=0;
-// 			OnButtonAlarm();
-// 			break;
-// 		case 5://认证帧
-// 			break;
-// 		}
-// 		m_StatBar->SetText("软件及板卡状态：子板请求重传",1,0);
-// 	} 
-// 	else
-// 	{
-// 	//	AfxMessageBox("下位机帧有错误！",MB_OK,0);
-// 	}
-// 		UpdateData(FALSE);
-// 	}
+	VARIANT variant_inp;
+	COleSafeArray safearray_inp;
+	LONG len,k;
+	BYTE rxdata[2048]; //设置BYTE数组
+	CString strDisp="",strTmp="";
+	int frequency_point=0;//频率扫描的总的频点数
+	double frequency_buf=0;//频点计算
+	
+	if((m_comm_WT.GetCommEvent()==2)) //事件值为2表示接收缓冲区内有字符
+	{
+
+		variant_inp=m_comm_WT.GetInput(); //读缓冲区
+		safearray_inp=variant_inp;  //VARIANT型变量转换为ColeSafeArray型变量
+		len=safearray_inp.GetOneDimSize(); //得到有效数据长度
+		for(k=0;k<len;k++)
+		{
+			safearray_inp.GetElement(&k,rxdata+k);//转换为BYTE型数组
+		}
+		frame_index=0;
+		for(k=0;k<len;k++)//将数组转化为CString类型
+		{
+			BYTE bt=*(char*)(rxdata+k);    //字符型
+				if (rxdata[0]!='$')
+				{
+					return;//帧数据串错误
+				}
+			frame_receive_WT[frame_index]=bt;
+			frame_index++;			
+		}
+//		AfxMessageBox(strDisp,MB_OK,0);
+		char *str_calloff = "ATS2";	//挂机提示
+		char *str_ring = "ATRing";	//振铃,显示来电提示
+		char *str_callon = "ATCID";	//来电提示,显示电话号码	
+		char *str_sigvoice = "ATN";	//传号提示,一次传一位
+		char *str_listen = "ATZ";	//摘机提示,进行号码和时间的提取
+
+
+	if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='N'))//检测是否为DTMF信号
+	{
+		strDisp=frame_receive_WT;
+		m_FKXX+=strDisp;
+		m_FKXX+="\r\n";
+		UpdateData(FALSE);
+		
+	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='C')&&(frame_receive_WT[3]=='I')&&(frame_receive_WT[4]=='D'))//检测是否为来电提示
+	{
+		strDisp=frame_receive_WT+5;
+		m_FKXX+=strDisp;
+		m_FKXX+="\r\n";
+
+	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='S')&&(frame_receive_WT[3]=='2'))//检测是否为挂机提示
+	{
+		m_FKXX+="对方挂机";
+		char lpOutBuffer[] = {'A','T','H','\r','\n'};//接着上传ATH指令进行挂机
+		CByteArray Array;
+		Array.RemoveAll();
+		Array.SetSize(5);		
+		
+		for (int i=0; i<5; i++)
+		{
+			Array.SetAt(i,lpOutBuffer[i]);
+		}
+		if(m_comm_WT.GetPortOpen())
+		{
+			m_comm_WT.SetOutput(COleVariant(Array));//发送数据
+		}
+
+		GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("打电话");
+
+	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='R')&&(frame_receive_WT[3]=='i')&&(frame_receive_WT[4]=='n')&&(frame_receive_WT[5]=='g'))//检测是否为来电提示音
+	{
+		m_FKXX+="Ring";
+		PlaySound(".//ring.wav", NULL, SND_FILENAME|SND_ASYNC);
+
+	}else if (rxdata[0] >='0' && rxdata[0]<='9')//检测是否是电话号码
+	{
+		strDisp=frame_receive_WT;
+		m_FKXX+=strDisp;
+		m_FKXX+="\r\n";
+	} 
+	else
+	{
+	//	AfxMessageBox("下位机帧有错误！",MB_OK,0);
+	}
+		UpdateData(FALSE);
+	}
 }
 
 void CBeidouDlg::OnOpencloseportWT() 
@@ -1342,7 +1313,7 @@ void CBeidouDlg::OnOpencloseportWT()
 			GetDlgItem(IDC_OPENCLOSEPORT_WT)->SetWindowText("关闭串口");
 			m_openoff_WT.SetIcon(m_hIconRed);
 
-			GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
+			if(SerialPortOpenCloseFlag_WT)GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
 		}
 		else
 			MessageBox("串口无法打开.");	 
@@ -1363,4 +1334,259 @@ void CBeidouDlg::OnSelendokComboComselectWT()
 	// TODO: Add your control notification handler code here
 	m_DCom_WT=m_com_WT.GetCurSel()+1;
 	UpdateData();	
+}
+
+void CBeidouDlg::OnButtonClearNum() 
+{
+	// TODO: Add your control notification handler code here
+	m_target_number="";
+	UpdateData(FALSE);
+	GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
+	GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
+}
+
+void CBeidouDlg::OnButtonCall() 
+{
+	// TODO: Add your control notification handler code here
+	if(m_target_number==""){
+		AfxMessageBox("请输入对方号码");
+	}else{
+		if(WT_state==0){//摘机
+			char lpOutBuffer[] = {'A','T','Z','\r','\n'};//接着上传ATH指令进行挂机
+			CByteArray Array;
+			Array.RemoveAll();
+			Array.SetSize(5);		
+			
+			for (int i=0; i<5; i++)
+			{
+				Array.SetAt(i,lpOutBuffer[i]);
+			}
+			if(m_comm_WT.GetPortOpen())
+			{
+				m_comm_WT.SetOutput(COleVariant(Array));//发送数据
+			}
+			GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
+			SetTimer(3,500,NULL);//500ms后再调用本函数进行拨号，使摘机动作对用户透明，先操作一次摘机再调用一次，用于拨号
+			WT_state=2;//该拨号啦
+
+		}else if (WT_state==3)//挂机
+		{
+			char lpOutBuffer[] = {'A','T','H','\r','\n'};//接着上传ATH指令进行挂机
+			CByteArray Array;
+			Array.RemoveAll();
+			Array.SetSize(5);		
+			
+			for (int i=0; i<5; i++)
+			{
+				Array.SetAt(i,lpOutBuffer[i]);
+			}
+			if(m_comm_WT.GetPortOpen())
+			{
+				m_comm_WT.SetOutput(COleVariant(Array));//发送数据
+			}
+			GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
+			WT_state=0;//挂机，空闲中
+		} 
+		else if(WT_state==2)//拨号
+		{
+			CByteArray Array;
+			Array.RemoveAll();
+			int len=m_target_number.GetLength();
+			Array.SetSize(len+5);
+			char *lpOutBuffer = (char *)malloc((len+5)*sizeof(char));
+			if(lpOutBuffer == NULL)
+				MessageBox("Allocated failed!");
+
+			memcpy(lpOutBuffer+3,m_target_number,len);
+			lpOutBuffer[0] = 'A';
+			lpOutBuffer[1] = 'T';
+			lpOutBuffer[2] = 'D';
+			lpOutBuffer[len+3] = '\r';
+			lpOutBuffer[len+4] = '\n';
+			
+			for (int i=0; i<(len+5); i++)
+			{
+				Array.SetAt(i,lpOutBuffer[i]);
+			}
+			if(m_comm_WT.GetPortOpen())
+			{
+				m_comm_WT.SetOutput(COleVariant(Array));//发送数据
+			}
+			GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
+			WT_state=3;//通话中
+		}
+			
+	}
+}
+
+
+void CBeidouDlg::OnChangeEditTargetnum() 
+{
+	// TODO: If this is a RICHEDIT control, the control will not
+	// send this notification unless you override the CDialog::OnInitDialog()
+	// function and call CRichEditCtrl().SetEventMask()
+	// with the ENM_CHANGE flag ORed into the mask.
+	
+	// TODO: Add your control notification handler code here
+	if (m_target_number=="")
+	{
+		GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
+	}else{
+		if(SerialPortOpenCloseFlag_WT)GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
+	}
+}
+
+void CBeidouDlg::OnButton1() 
+{
+	// TODO: Add your control notification handler code here
+	chuanhao('1');
+	m_target_number+="1";
+	UpdateData(FALSE);
+}
+
+void CBeidouDlg::OnButton2() 
+{
+	// TODO: Add your control notification handler code here
+	chuanhao('2');
+	m_target_number+="2";
+	UpdateData(FALSE);
+}
+
+void CBeidouDlg::chuanhao(char num)
+{
+	char lpOutBuffer[] = {'A','T','B','0','\r','\n'};//接着上传ATH指令进行挂机
+	lpOutBuffer[3]=num;
+	CByteArray Array;
+	Array.RemoveAll();
+	Array.SetSize(5);		
+	
+	for (int i=0; i<5; i++)
+	{
+		Array.SetAt(i,lpOutBuffer[i]);
+	}
+	if(m_comm_WT.GetPortOpen())
+	{
+		m_comm_WT.SetOutput(COleVariant(Array));//发送数据
+	}
+	if(SerialPortOpenCloseFlag_WT)GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
+}
+
+void CBeidouDlg::OnButton3() 
+{
+	// TODO: Add your control notification handler code here
+	chuanhao('3');
+	m_target_number+="3";
+	UpdateData(FALSE);
+}
+
+void CBeidouDlg::OnButton4() 
+{
+	// TODO: Add your control notification handler code here
+	chuanhao('4');
+	m_target_number+="4";
+	UpdateData(FALSE);
+}
+
+void CBeidouDlg::OnButton5() 
+{
+	// TODO: Add your control notification handler code here
+	chuanhao('5');
+	m_target_number+="5";
+	UpdateData(FALSE);
+}
+
+void CBeidouDlg::OnButton6() 
+{
+	// TODO: Add your control notification handler code here
+	chuanhao('6');
+	m_target_number+="6";
+	UpdateData(FALSE);
+}
+
+void CBeidouDlg::OnButton8() 
+{
+	// TODO: Add your control notification handler code here
+	chuanhao('7');
+	m_target_number+="7";
+	UpdateData(FALSE);
+}
+
+void CBeidouDlg::OnButton7() 
+{
+	// TODO: Add your control notification handler code here
+	chuanhao('8');
+	m_target_number+="8";
+	UpdateData(FALSE);
+}
+
+void CBeidouDlg::OnButton9() 
+{
+	// TODO: Add your control notification handler code here
+	chuanhao('9');
+	m_target_number+="9";
+	UpdateData(FALSE);
+}
+
+void CBeidouDlg::OnButton10() 
+{
+	// TODO: Add your control notification handler code here
+	chuanhao('0');
+	m_target_number+="0";
+	UpdateData(FALSE);
+}
+
+void CBeidouDlg::OnButtonXing() 
+{
+	// TODO: Add your control notification handler code here
+	chuanhao('*');
+	m_target_number+="*";
+	UpdateData(FALSE);
+}
+
+void CBeidouDlg::OnButtonJing() 
+{
+	// TODO: Add your control notification handler code here
+	chuanhao('#');
+	m_target_number+="#";
+	UpdateData(FALSE);
+}
+
+void CBeidouDlg::OnButtonBack() 
+{
+	// TODO: Add your control notification handler code here
+	if (m_target_number=="")
+	{
+		GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
+	} 
+	else
+	{
+		m_target_number=m_target_number.Left(m_target_number.GetLength()-1);
+		UpdateData(FALSE);
+//		AfxMessageBox(m_target_number);
+	}
+}
+
+void CBeidouDlg::OnDestroy() 
+{
+	CDialog::OnDestroy();
+	
+	// TODO: Add your message handler code here
+	
+}
+
+//DEL void CBeidouDlg::OnCaptureChanged(CWnd *pWnd) 
+//DEL {
+//DEL 	// TODO: Add your message handler code here
+//DEL // 	HANDLE hself = GetCurrentProcess();
+//DEL // 	TerminateProcess(hself, 0);
+//DEL 
+//DEL 	CDialog::OnCaptureChanged(pWnd);
+//DEL }
+
+void CBeidouDlg::OnChar(UINT nChar, UINT nRepCnt, UINT nFlags) 
+{
+	// TODO: Add your message handler code here and/or call default
+	HANDLE hself = GetCurrentProcess();
+// 	TerminateProcess(hself, 0);
+	CDialog::OnChar(nChar, nRepCnt, nFlags);
 }

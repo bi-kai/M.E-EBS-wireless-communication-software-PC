@@ -62,6 +62,7 @@
 #define IDC_STATIC_MESSAGE              1059
 #define IDC_MSCOMM_WT                   1060
 #define IDC_BUTTON_BACK2                1061
+#define IDC_BUTTON_CLEAR_NUM            1061
 
 // Next default values for new objects
 // 
