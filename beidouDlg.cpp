@@ -27,6 +27,9 @@ static char THIS_FILE[] = __FILE__;
 #define received_frame_size 5//缓冲区数组个数
 bool frameplus=0;//0:$为第一位；1：$在串的中间
 
+#define BORD_LEFT_HIDE 500//高级配置，隐藏的界面左区域
+#define BORD_RIGHT_HIDE 400//高级配置，隐藏的界面右区域
+
 unsigned char frame_IC_check[11]={0x24,0x49,0x63,0x63,0x5F,0x00,0x0B,0x00,0x00,0x00,0x39};
 unsigned char frame_SYS_check[11]={0x24,0x53,0x74,0x73,0x5F,0x00,0x0B};
 unsigned char frame_POWER_check[12]={0x24,0x53,0x69,0x67,0x5F,0x00,0x0C};
@@ -150,6 +153,9 @@ BEGIN_MESSAGE_MAP(CBeidouDlg, CDialog)
 	ON_BN_CLICKED(IDC_BUTTON3_POWERCHECK, OnButton3Powercheck)
 	ON_WM_TIMER()
 	ON_WM_CANCELMODE()
+	ON_BN_CLICKED(IDC_BUTTON_SET, OnButtonSet)
+	ON_BN_CLICKED(IDC_BUTTON_PHONE, OnButtonPhone)
+	ON_BN_CLICKED(IDC_BUTTON_MESSAGE, OnButtonMessage)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -242,12 +248,31 @@ BOOL CBeidouDlg::OnInitDialog()
 	m_timer.SetRange(0,60);
     m_timer.SetPos(0);
 	m_timer.SetStep(1);//设置进度条的当前位置
+	/****************************缩短界面**********************************/
+	GetWindowRect(&rectLarge);
+
+	GetDlgItem(IDC_STATIC_PHONE)->GetWindowRect(&rectSeparator);
+	rectSmall.left=rectSeparator.left;
+	rectSmall.top=rectLarge.top;
+	rectSmall.right=rectSeparator.right+30;
+	rectSmall.bottom=rectLarge.bottom;
+	SetWindowPos(NULL,0,0,rectSmall.Width(),rectSmall.Height(),SWP_NOMOVE|SWP_NOZORDER);
+	
+
+	GetDlgItem(IDC_STATIC_MESSAGE)->GetWindowRect(&rectSeparator);
+	rectMiddle.left=rectSeparator.left;
+	rectMiddle.top=rectLarge.top;
+	rectMiddle.right=rectSeparator.right+30;
+	rectMiddle.bottom=rectLarge.bottom;
+	/*********************************************************************/
+	switch_state=0;//打电话
+	
 	
 	
 	return TRUE;  // return TRUE  unless you set the focus to a control
-}
-
-void CBeidouDlg::OnSysCommand(UINT nID, LPARAM lParam)
+	}
+	
+	void CBeidouDlg::OnSysCommand(UINT nID, LPARAM lParam)
 {
 	if ((nID & 0xFFF0) == IDM_ABOUTBOX)
 	{
@@ -1067,4 +1092,52 @@ void CBeidouDlg::OnCancelMode()
 	
 	// TODO: Add your message handler code here
 	
+}
+
+void CBeidouDlg::OnButtonSet() 
+{
+	// TODO: Add your control notification handler code here
+	CString str;
+	//获得按钮文本
+	GetDlgItemText(IDC_BUTTON_SET,str);
+	if(str=="完成")
+	{
+		//设置按钮文本
+		SetDlgItemText(IDC_BUTTON_SET,"配置");
+	}
+	else
+	{
+		SetDlgItemText(IDC_BUTTON_SET,"完成");
+	}
+	if(str=="完成")
+	{
+		//显示"简化版"对话框
+		if (switch_state==0)//打电话
+		{
+			SetWindowPos(NULL,0,0,rectSmall.Width(),rectSmall.Height(),SWP_NOMOVE|SWP_NOZORDER);
+		}else if(switch_state==1){//发短信
+			SetWindowPos(NULL,0,0,rectMiddle.Width(),rectMiddle.Height(),SWP_NOMOVE|SWP_NOZORDER);
+		}
+		
+	}
+	else
+	{
+		SetWindowPos(NULL,0,0,rectLarge.Width(),rectLarge.Height(),SWP_NOMOVE|SWP_NOZORDER);
+	}
+
+}
+
+void CBeidouDlg::OnButtonPhone() 
+{
+	// TODO: Add your control notification handler code here
+	switch_state=0;//打电话
+ 	SetWindowPos(NULL,0,0,rectSmall.Width(),rectSmall.Height(),SWP_NOMOVE|SWP_NOZORDER);
+ 	SetDlgItemText(IDC_BUTTON_SET,"配置");
+}
+
+void CBeidouDlg::OnButtonMessage() 
+{
+	// TODO: Add your control notification handler code here
+	switch_state=1;//发短信
+	SetWindowPos(NULL,0,0,rectMiddle.Width(),rectMiddle.Height(),SWP_NOMOVE|SWP_NOZORDER);
 }

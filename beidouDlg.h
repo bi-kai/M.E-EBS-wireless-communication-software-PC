@@ -30,6 +30,13 @@ public:
 	HICON m_hIconRed;    //串口打开时的红灯图标句柄
 	HICON m_hIconOff;    //串口关闭时的指示图标句柄
 
+	CRect rectLarge;//全部框
+	CRect rectSmall;//电话框
+	CRect rectMiddle;//电话短信框
+	CRect rectSeparator;
+
+	int switch_state;//切换状态标志位，0：打电话；1：发短信；
+
 // Dialog Data
 	//{{AFX_DATA(CBeidouDlg)
 	enum { IDD = IDD_BEIDOU_DIALOG };
@@ -101,6 +108,9 @@ protected:
 	afx_msg void OnButton3Powercheck();
 	afx_msg void OnTimer(UINT nIDEvent);
 	afx_msg void OnCancelMode();
+	afx_msg void OnButtonSet();
+	afx_msg void OnButtonPhone();
+	afx_msg void OnButtonMessage();
 	DECLARE_EVENTSINK_MAP()
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()

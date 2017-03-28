@@ -24,6 +24,7 @@
 #define IDC_STATIC_OPENOFF              1026
 #define IDC_BUTTON_MESSAGE              1027
 #define IDC_BUTTON_SEND4                1028
+#define IDC_BUTTON_SET                  1028
 #define IDC_BUTTON_CLEAR                1029
 #define IDC_BUTTON_SYSTEMCHECK          1030
 #define IDC_BUTTON_ICCHECK              1031
@@ -53,6 +54,8 @@
 #define IDC_BUTTON_13                   1055
 #define IDC_BUTTON_BACK                 1055
 #define IDC_BUTTON_CALL                 1056
+#define IDC_STATIC_PHONE                1058
+#define IDC_STATIC_MESSAGE              1059
 
 // Next default values for new objects
 // 
@@ -60,7 +63,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        132
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         1047
+#define _APS_NEXT_CONTROL_VALUE         1060
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
