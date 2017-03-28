@@ -23,9 +23,9 @@ class CBeidouDlg : public CDialog
 {
 // Construction
 public:
-	void sound_switch(int index);
-	void module_reset(int index);
-	void chuanhao(char num);
+	void sound_switch(int index);//音频开关手动切换
+	void module_reset(int index);//功能模块复位
+	void chuanhao(char num);//有线电话传号
 	int strHex(CString str, unsigned char * data,int num);
 	void DeFKXX(unsigned char *BUFF);
 	void DeMsg(unsigned char *BUFF);
@@ -43,11 +43,12 @@ public:
 	CRect rectMiddle;//电话短信框
 	CRect rectSeparator;
 
-	int switch_state;//切换状态标志位，0：打电话；1：发短信；
+	int switch_state;//顶部通信模式串口切换标志位，区分接下来是要打电话还是发短信，0：打电话窗口；1：发短信窗口；
 //	int state_phone[3];//打电话功能模块可用状态标志。[0]：有线电话可用状态标志0：不可用，1：可用；[1]：3G电话状态；[2]：卫星电话状态；
 //	int state_message[2];//[0]：3G短信状态；[1]：北斗短信状态；
 
-	int m_DCom;
+	int m_DCom;//北斗串口号
+	int m_DCom_WT;//有线电话串口号
 	int m_DCom_YW;//运维板串口号
 	int m_DStopbits;
 	char m_DParity;
@@ -55,17 +56,15 @@ public:
 	LONG m_DBaud;	
 	
 	BOOL SerialPortOpenCloseFlag;//北斗串口打开关闭标志位
-	BOOL SerialPortOpenCloseFlag_WT;//有线电话串口打开关闭标志位
-	BOOL frame_lock;
-	unsigned int frame_len[5];//各个缓冲帧的长度
+	unsigned int frame_len[5];//各个缓冲帧的数据长度
 	int frame_index;//帧的索引
 	bool frame_flag[5];//帧准等待处理标志位
 	unsigned int framelen;//帧长计数器
 	bool comm_init;//串口初次初始化标志位
 	CStatusBarCtrl *m_StatBar;//状态栏
 	/***************有线电话**************************/
+	BOOL SerialPortOpenCloseFlag_WT;//有线电话串口打开关闭标志位
 	int WT_state;//有线电话状态。0：空闲；1：摘机；2：拨号；3：通话；4：；
-	int m_DCom_WT;
 	CString call_in_number;//打进来的电话号码
 	bool flag_PW_in_busy;//有线电话接听电话状态。1:接电话中;0：空闲中；
 	bool flag_PW_out_busy;//有线电话拨出电话状态。1:拨出电话中;0：空闲中；

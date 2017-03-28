@@ -27,19 +27,14 @@ static char THIS_FILE[] = __FILE__;
 #define Zrd 7
 #define Tim 8
 #define FKXX 9
-#define SendBufferSize 200
 #define received_frame_size 5//缓冲区数组个数
-bool frameplus=0;//0:$为第一位；1：$在串的中间
-
-#define BORD_LEFT_HIDE 500//高级配置，隐藏的界面左区域
-#define BORD_RIGHT_HIDE 400//高级配置，隐藏的界面右区域
 
 unsigned char frame_IC_check[12]={0x24,0x49,0x43,0x4A,0x43,0x00,0x0C,0x00,0x00,0x00,0x01,0x2A};//IC查询
 unsigned char frame_SYS_check[11]={0x24,0x53,0x74,0x73,0x5F,0x00,0x0B};//系统检测
 unsigned char frame_POWER_check[12]={0x24,0x47,0x4C,0x4A,0x43,0x00,0x0C,0x00,0x00,0x00,0x01,0x2B};//功率查询
 unsigned char frame_MSG_check[250]={0x24,0x54,0x58,0x53,0x51};//通信申请
 
-unsigned char frame_receive[received_frame_size][2000]={0};
+unsigned char frame_receive[received_frame_size][2000]={0};//北斗接收帧缓冲
 
 /*************有线电话******************************/
 unsigned char frame_receive_WT[2000]={0};
@@ -312,7 +307,6 @@ BOOL CBeidouDlg::OnInitDialog()
 	m_comm_YW.SetInputLen(0); //设置当前接收区数据长度为0
 	//	 m_comm_WT.GetInput();    //先预读缓冲区以清除残留数据
 /**********************************************************************/
-	frame_lock=0;//缓冲帧使用锁，0：允许用；1：禁止使用
 	for(int j=0;j<received_frame_size;j++){
 		frame_flag[j]=0;//没有帧等待处理
 		frame_len[j]=0;//缓冲帧的下标
@@ -338,7 +332,6 @@ BOOL CBeidouDlg::OnInitDialog()
 	rectSmall.right=rectSeparator.right+27;
 	rectSmall.bottom=rectLarge.bottom;
 	SetWindowPos(NULL,0,0,rectSmall.Width(),rectSmall.Height(),SWP_NOMOVE|SWP_NOZORDER);
-	GetDlgItem(IDC_BUTTON_CALL)->ShowWindow(SW_SHOW);
 
 	GetDlgItem(IDC_STATIC_MESSAGE)->GetWindowRect(&rectSeparator);
 	rectMiddle.left=rectSeparator.left;
@@ -518,6 +511,7 @@ void CBeidouDlg::OnComm1()
 	COleSafeArray safearray_inp;
 	LONG len,k;
 	BYTE rxdata[2048]; //设置BYTE数组
+	static bool frameplus=0;//0:$为第一位；1：$在串的中间
 	CString strDisp="",strTmp="";
 
 	if((m_comm.GetCommEvent()==2)) //事件值为2表示接收缓冲区内有字符
@@ -536,7 +530,6 @@ void CBeidouDlg::OnComm1()
 
 //			AfxMessageBox("OK",MB_OK,0);
 //			frame=frame_len[frame_index];
-//			frame_lock=0;
 //			frame_len[frame_index]=0;
 
 
@@ -957,27 +950,27 @@ void CBeidouDlg::OnButtonClear()
 void CBeidouDlg::OnButtonSystemcheck() 
 {
 	// TODO: Add your control notification handler code here
-	m_sata1.SetPos(0);
-	m_sata2.SetPos(0);
- 	m_sata3.SetPos(0);
-	m_cardnumber=0;
-	m_cardstate="";
-	m_basestate="";
-
-	CByteArray Array;
-	Array.RemoveAll();
-	Array.SetSize(12);
-	for (int i=0; i<12; i++)
-	{
-		Array.SetAt(i,frame_SYS_check[i]);
-	}
-	
-	
-	if(m_comm.GetPortOpen())
-	{
-		m_comm.SetOutput(COleVariant(Array));//发送数据
-	}
-	UpdateData(FALSE);
+// 	m_sata1.SetPos(0);
+// 	m_sata2.SetPos(0);
+//  	m_sata3.SetPos(0);
+// 	m_cardnumber=0;
+// 	m_cardstate="";
+// 	m_basestate="";
+// 
+// 	CByteArray Array;
+// 	Array.RemoveAll();
+// 	Array.SetSize(12);
+// 	for (int i=0; i<12; i++)
+// 	{
+// 		Array.SetAt(i,frame_SYS_check[i]);
+// 	}
+// 	
+// 	
+// 	if(m_comm.GetPortOpen())
+// 	{
+// 		m_comm.SetOutput(COleVariant(Array));//发送数据
+// 	}
+// 	UpdateData(FALSE);
 }
 
 void CBeidouDlg::OnButtonIccheck() 
@@ -1806,10 +1799,8 @@ void CBeidouDlg::OnButton1()
 	{
 		sound_switch(1);
 	}
-	else{
+	else{//有线电话传号
 		chuanhao('1');
-		m_target_number+="1";
-		UpdateData(FALSE);
 	}
 }
 
@@ -1824,10 +1815,8 @@ void CBeidouDlg::OnButton2()
 	{
 		sound_switch(2);
 	}
-	else{
+	else{//有线电话传号
 		chuanhao('2');
-		m_target_number+="2";
-		UpdateData(FALSE);
 	}
 }
 
@@ -1838,6 +1827,10 @@ void CBeidouDlg::chuanhao(char num)
 		m_target_number=m_target_number.Left(m_target_number.GetLength()-1);
 	}
 	if(SerialPortOpenCloseFlag_WT)GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
+	if(flag_PW_out_busy==0)GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(TRUE);//主动呼出时，失能退格按钮
+	
+	m_target_number+=num;
+	UpdateData(FALSE);
 
 	if((flag_PW_in_busy==1)||(flag_PW_out_busy==1)){//呼入或呼出后，才传号
 		char lpOutBuffer[] = {'A','T','B','0','\r','\n'};//接着上传ATH指令进行挂机
@@ -1854,7 +1847,10 @@ void CBeidouDlg::chuanhao(char num)
 		{
 			m_comm_WT.SetOutput(COleVariant(Array));//发送数据
 		}
-		if(flag_PW_out_busy==0)GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(TRUE);//主动呼出时，失能退格按钮
+		
+		
+	}else if(switch_state==1){//发短信
+//		AfxMessageBox("gaga");
 	}
 }
 
@@ -1869,10 +1865,8 @@ void CBeidouDlg::OnButton3()
 	{
 		sound_switch(3);
 	}
-	else{
+	else{//有线电话传号
 		chuanhao('3');
-		m_target_number+="3";
-		UpdateData(FALSE);
 	}
 }
 
@@ -1887,10 +1881,8 @@ void CBeidouDlg::OnButton4()
 	{
 		sound_switch(4);
 	}
-	else{
+	else{//有线电话传号
 		chuanhao('4');
-		m_target_number+="4";
-		UpdateData(FALSE);
 	}
 }
 
@@ -1899,8 +1891,6 @@ void CBeidouDlg::OnButton5()
 	// TODO: Add your control notification handler code here
 	if((modulereset==FALSE)&&(soundswitch==FALSE)){
 		chuanhao('5');
-		m_target_number+="5";
-		UpdateData(FALSE);
 	}
 }
 
@@ -1909,8 +1899,6 @@ void CBeidouDlg::OnButton6()
 	// TODO: Add your control notification handler code here
 	if((modulereset==FALSE)&&(soundswitch==FALSE)){
 	chuanhao('6');
-	m_target_number+="6";
-	UpdateData(FALSE);
 	}
 }
 
@@ -1919,8 +1907,6 @@ void CBeidouDlg::OnButton8() //对应数字7键，写反了
 	// TODO: Add your control notification handler code here
 	if((modulereset==FALSE)&&(soundswitch==FALSE)){
 	chuanhao('7');
-	m_target_number+="7";
-	UpdateData(FALSE);
 	}
 }
 
@@ -1929,8 +1915,6 @@ void CBeidouDlg::OnButton7() //对应数字8键，写反了
 	// TODO: Add your control notification handler code here
 	if((modulereset==FALSE)&&(soundswitch==FALSE)){
 	chuanhao('8');
-	m_target_number+="8";
-	UpdateData(FALSE);
 	}
 }
 
@@ -1939,8 +1923,6 @@ void CBeidouDlg::OnButton9()
 	// TODO: Add your control notification handler code here
 	if((modulereset==FALSE)&&(soundswitch==FALSE)){
 	chuanhao('9');
-	m_target_number+="9";
-	UpdateData(FALSE);
 	}
 }
 
@@ -1949,8 +1931,6 @@ void CBeidouDlg::OnButton10()
 	// TODO: Add your control notification handler code here
 	if((modulereset==FALSE)&&(soundswitch==FALSE)){
 	chuanhao('0');
-	m_target_number+="0";
-	UpdateData(FALSE);
 	}
 }
 
@@ -1959,8 +1939,6 @@ void CBeidouDlg::OnButtonXing()
 	// TODO: Add your control notification handler code here
 	if((modulereset==FALSE)&&(soundswitch==FALSE)){
 	chuanhao('*');
-	m_target_number+="*";
-	UpdateData(FALSE);
 	}
 }
 
@@ -1969,8 +1947,6 @@ void CBeidouDlg::OnButtonJing()
 	// TODO: Add your control notification handler code here
 	if((modulereset==FALSE)&&(soundswitch==FALSE)){
 	chuanhao('#');
-	m_target_number+="#";
-	UpdateData(FALSE);
 	}
 }
 
@@ -2055,7 +2031,6 @@ void CBeidouDlg::OnComm_YW()
 		
 		//			AfxMessageBox("OK",MB_OK,0);
 		//			frame=frame_len[frame_index_YW];
-		//			frame_lock=0;
 		//			frame_len[frame_index_YW]=0;
 		
 		frame_index_YW=0;
@@ -2397,11 +2372,21 @@ void CBeidouDlg::OnSoundSwitch()
 	{
 		soundswitch=TRUE;
 		GetDlgItem(IDC_SOUND_SWITCH)->SetWindowText("关闭切换");
+
+		GetDlgItem(IDC_BUTTON_1)->SetWindowText("开关1");
+		GetDlgItem(IDC_BUTTON_2)->SetWindowText("开关2");
+		GetDlgItem(IDC_BUTTON_3)->SetWindowText("开关3");
+		GetDlgItem(IDC_BUTTON_4)->SetWindowText("开关4");
 	} 
 	else
 	{
 		soundswitch=FALSE;
 		GetDlgItem(IDC_SOUND_SWITCH)->SetWindowText("音频切换");
+
+		GetDlgItem(IDC_BUTTON_1)->SetWindowText("1");
+		GetDlgItem(IDC_BUTTON_2)->SetWindowText("2");
+		GetDlgItem(IDC_BUTTON_3)->SetWindowText("3");
+		GetDlgItem(IDC_BUTTON_4)->SetWindowText("4");
 	}
 }
 
