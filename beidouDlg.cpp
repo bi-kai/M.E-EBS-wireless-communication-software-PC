@@ -877,6 +877,7 @@ void CBeidouDlg::OnButtonSendMsg()
 {
 	// TODO: Add your control notification handler code here
 //		CString sendTmp="";
+		KillTimer(8);
 		UpdateData();
 		if (m_target_number.GetLength()!=6)//(m_otherID==0)
 		{
@@ -937,7 +938,7 @@ void CBeidouDlg::OnButtonSendMsg()
 		}else{
 			AfxMessageBox("请输入短信内容。");
 		} 
-		
+		SetTimer(8,(QUERY_INTERVAL+QUERY_BD),NULL);
 }
 
 void CBeidouDlg::OnButtonClear() 
@@ -1038,6 +1039,8 @@ void CBeidouDlg::DeIcc(unsigned char *BUFF)
 	timer_board_disconnect_times_BD=0;//查询计数器归零
 	m_board_led_BD.SetIcon(m_hIconRed);
 	GetDlgItem(IDC_STATIC_BOARDCONNECT_BD)->SetWindowText(" 北斗已连接！");
+	m_FKXX+="北斗连接查询：正常\r\n";
+	UpdateData(FALSE);
 
 	if ((comm_init==0)&&(_Useraddr!=0))//初次初始化串口，将卡号提出，完成各帧
 	{
@@ -1144,7 +1147,7 @@ void CBeidouDlg::DeSig(unsigned char *BUFF)
 //	long _Useraddr;
 	unsigned char Sigx[6]={0},power_buf=0;
 	
-	state_system[4]=0;//北斗可用
+	state_system[3]=0;//北斗可用
 	for(short i = 0;i<6;i++)
 	Sigx[i]=BUFF[i+10];
 //	_Useraddr=((long)BUFF[7])*pow(2, 16)+((long)BUFF[8])*pow(2, 8)+((long)BUFF[9]); 
@@ -1378,6 +1381,8 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 		if (timer_board_disconnect_times_WT>=QUERY_TOLERATE_TIMES)
 		{
 			state_system[0]=1;//有线电话故障
+			m_FKXX+="有线电话连接查询：故障\r\n";
+			UpdateData(FALSE);
 			timer_board_disconnect_times_WT=0;
 			m_board_led_WT.SetIcon(m_hIconOff);
 			GetDlgItem(IDC_STATIC_BOARDCONNECT_WT)->SetWindowText("有线电话连接丢失!");
@@ -1431,6 +1436,8 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 		}
 		if (timer_board_disconnect_times_YW>=QUERY_TOLERATE_TIMES)
 		{
+			m_FKXX+="运维板连接查询：故障\r\n";
+			UpdateData(FALSE);
 			timer_board_disconnect_times_YW=0;
 			m_board_led_YW.SetIcon(m_hIconOff);
 			GetDlgItem(IDC_STATIC_BOARDCONNECT_YW)->SetWindowText("运维板连接丢失!");
@@ -1462,7 +1469,9 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 		}
 		if (timer_board_disconnect_times_BD>=QUERY_TOLERATE_TIMES)
 		{
-			state_system[4]=1;//北斗故障
+			state_system[3]=1;//北斗故障
+			m_FKXX+="北斗连接查询：故障\r\n";
+			UpdateData(FALSE);
 			timer_board_disconnect_times_BD=0;
 			m_board_led_BD.SetIcon(m_hIconOff);
 			GetDlgItem(IDC_STATIC_BOARDCONNECT_BD)->SetWindowText("北斗连接丢失!");
@@ -1663,8 +1672,8 @@ void CBeidouDlg::OnComm_WT()
 		GetDlgItem(IDC_STATIC_BOARDCONNECT_WT)->SetWindowText(" 有线电话已连接！"); 
 		timer_board_disconnect_times_WT=0;//查询计数器归零
 		state_system[0]=0;//有线电话可用
-		m_FKXX+="挂机成功";
-		m_FKXX+="\r\n";
+		if((flag_PW_in_busy==1)||(flag_PW_out_busy==1))	m_FKXX+="挂机成功\r\n";
+		else m_FKXX+="有线电话连接查询：正常\r\n";
 	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='B'))//检测是否传号成功
 	{
 		m_FKXX+="传号成功";
@@ -1692,9 +1701,10 @@ void CBeidouDlg::OnComm_WT()
 //		flag_PW_in_busy=0;//对方挂机，清零
 //		flag_PW_out_busy=0;//对方挂机，清零
 //		WT_state=0;
-
+		SetTimer(4,(QUERY_INTERVAL+QUERY_WT),NULL);//主动挂机和被动挂机都打开定时器
 	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='R')&&(frame_receive_WT[3]=='i')&&(frame_receive_WT[4]=='n')&&(frame_receive_WT[5]=='g'))//检测是否为来电提示音
 	{
+		KillTimer(4);
 		m_FKXX+="Ring!  ";
 		GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
 //		GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("接听电话");
@@ -1820,7 +1830,7 @@ void CBeidouDlg::OnButtonCall()
 		}
 
 		if(WT_state==0){//摘机
-			
+			KillTimer(4);
 			char lpOutBuffer[] = {'A','T','Z','\r','\n'};//接着上传ATH指令进行挂机
 			CByteArray Array;
 			Array.RemoveAll();
@@ -1870,6 +1880,7 @@ void CBeidouDlg::OnButtonCall()
 			WT_state=0;//挂机，空闲中
 			flag_PW_out_busy=0;//主动挂机，清零
 			flag_PW_in_busy=0;//主动挂机，清零
+			SetTimer(4,(QUERY_INTERVAL+QUERY_WT),NULL);//主动挂机和被动挂机都打开定时器
 		} 
 		else if(WT_state==2)//拨号
 		{
@@ -2199,6 +2210,7 @@ void CBeidouDlg::OnComm_YW()
 		flag_com_init_ack_YW=1;
 		m_board_led_YW.SetIcon(m_hIconRed);
 		GetDlgItem(IDC_STATIC_BOARDCONNECT_YW)->SetWindowText(" 运维板已连接！"); 
+		m_FKXX+="运维板连接查询：正常\r\n";
 		timer_board_disconnect_times_YW=0;//收到反馈则清零
 		UpdateData(FALSE);
 		
@@ -2276,7 +2288,7 @@ void CBeidouDlg::OnComm_YW()
 	}  
 	else
 	{
-		AfxMessageBox("运维板回传帧有错误！",MB_OK,0);
+		m_StatBar->SetText("运维板状态：运维板回传帧有错误！",4,0);
 	}
 	UpdateData(FALSE);
 	}

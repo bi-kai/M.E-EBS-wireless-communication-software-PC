@@ -13,7 +13,7 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// Chinese (P.R.C.) resources
+// Chinese (中国) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
 #ifdef _WIN32
@@ -102,10 +102,9 @@ BEGIN
     PUSHBUTTON      "打开串口",IDC_OPENCLOSEPORT,455,32,48,19
     ICON            IDI_ICON_OFF,IDC_STATIC_OPENOFF,425,32,20,20
     EDITTEXT        IDC_EDIT_RECEIVEMSG,202,15,202,154,ES_MULTILINE | 
-                    ES_UPPERCASE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | 
-                    ES_READONLY | WS_HSCROLL
+                    ES_UPPERCASE | ES_AUTOVSCROLL | ES_READONLY
     PUSHBUTTON      "发送信息",IDC_BUTTON_SEND,337,216,63,53
-    EDITTEXT        IDC_EDIT_SENDMSG,219,186,114,84,ES_AUTOHSCROLL
+    EDITTEXT        IDC_EDIT_SENDMSG,219,186,114,84,ES_MULTILINE
     PUSHBUTTON      "清除接收内容",IDC_BUTTON_CLEAR,337,185,63,25
     GROUPBOX        "北斗系统检测",IDC_STATIC,519,7,199,125
     PUSHBUTTON      "系统自检",IDC_BUTTON_SYSTEMCHECK,526,22,60,22
@@ -455,7 +454,7 @@ BEGIN
     IDS_ABOUTBOX            "关于 beidou(&A)..."
 END
 
-#endif    // Chinese (P.R.C.) resources
+#endif    // Chinese (中国) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
