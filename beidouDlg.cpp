@@ -17,7 +17,7 @@ static char THIS_FILE[] = __FILE__;
 #endif
 
 
-#define Sig 0
+#define Sig 10
 #define Pos 1
 #define Msg 2
 #define Bst 3
@@ -37,10 +37,9 @@ bool frameplus=0;//0:$为第一位；1：$在串的中间
 unsigned char frame_IC_check[12]={0x24,0x49,0x43,0x4A,0x43,0x00,0x0C,0x00,0x00,0x00,0x01,0x2A};//IC查询
 unsigned char frame_SYS_check[11]={0x24,0x53,0x74,0x73,0x5F,0x00,0x0B};//系统检测
 unsigned char frame_POWER_check[12]={0x24,0x47,0x4C,0x4A,0x43,0x00,0x0C,0x00,0x00,0x00,0x01,0x2B};//功率查询
-unsigned char frame_MSG_check[100]={0x24,0x4D,0x73,0x67,0x5F};//通信申请
+unsigned char frame_MSG_check[250]={0x24,0x54,0x58,0x53,0x51};//通信申请
 
 unsigned char frame_receive[received_frame_size][2000]={0};
-//unsigned char frame_IC_check[11]={0x24,0x49,0x63,0x63,0x5F,0x00,0x0B,0x00,0x00,0x00,0x39};
 
 /*************有线电话******************************/
 unsigned char frame_receive_WT[2000]={0};
@@ -329,10 +328,6 @@ BOOL CBeidouDlg::OnInitDialog()
 	m_sata2.SetStep(1);//设置进度条的当前位置
     m_sata2.SetPos(0);
 	m_sata3.SetStep(1);//设置进度条的当前位置
-
-	m_timer.SetRange(0,60);
-    m_timer.SetPos(0);
-	m_timer.SetStep(1);//设置进度条的当前位置
 	/****************************缩短界面**********************************/
 	GetWindowRect(&rectLarge);
 
@@ -525,7 +520,11 @@ void CBeidouDlg::OnComm1()
 	CString strDisp="",strTmp="";
 
 	if((m_comm.GetCommEvent()==2)) //事件值为2表示接收缓冲区内有字符
-	{
+	{	
+//		Sleep(100);//一帧较长，为避免接收半帧就触发响应函数，造成未收完的判断而添加大量保护代码。
+		//此处可用一种变通的方式，方法一，在触发事件时，延迟一下再读数据，保证每帧都是完整的。I'm very smart，哈哈
+		//方法二：下面的多帧缓冲区方式，不管几帧来，都能收下，并以$区分开存储，收完完整一帧再处理，这种方法保证不会漏帧
+
 		variant_inp=m_comm.GetInput(); //读缓冲区
 		safearray_inp=variant_inp;  //VARIANT型变量转换为ColeSafeArray型变量
 		len=safearray_inp.GetOneDimSize(); //得到有效数据长度
@@ -580,16 +579,16 @@ void CBeidouDlg::OnComm1()
 			}
 			frame_receive[frame_index][framelen]=bt;
 			framelen++;
-//			strTmp.Format("%02x ",bt);    //将字符送入临时变量strtemp存放
-//			strDisp+=strTmp;  //加入接收编辑框对应字符串
+			strTmp.Format("%02x ",bt);    //将字符送入临时变量strtemp存放
+			strDisp+=strTmp;  //加入接收编辑框对应字符串
 			
 		}
 		if (framelen==(frame_receive[frame_index][5]*256+frame_receive[frame_index][6]))
 		{
 			//帧接收完成
-//  			CString buf;
-//  			buf.Format("%d",frame_index);
-//  			AfxMessageBox(buf,MB_OK,0);
+// 			CString buf;
+//			buf.Format("%d",frame_index);
+// 			AfxMessageBox(buf,MB_OK,0);
 
 			frame_len[frame_index]=framelen;
 			framelen=0;
@@ -608,6 +607,7 @@ void CBeidouDlg::OnComm1()
 			
 		}
 		m_showmsg+=strDisp;
+		m_showmsg+="\r\n";
 		UpdateData(FALSE);
 	}	
 }
@@ -645,7 +645,7 @@ void CBeidouDlg::OnOpencloseport()
 			MessageBox("串口无法打开");
 //			m_comm.SetPortOpen(FALSE);	//	
 		m_comm.SetCommPort(m_DCom); //选择端口，默认是com1
-		m_comm.SetSettings((LPSTR)(LPCTSTR)string1); //波特率9600，无校验，8个数据位，1个停止位
+		m_comm.SetSettings((LPSTR)(LPCTSTR)string1); //波特率256000，无校验，8个数据位，1个停止位
 		if(!m_comm.GetPortOpen())
 		{			
 			m_comm.SetPortOpen(TRUE);//打开串口
@@ -661,8 +661,8 @@ void CBeidouDlg::OnOpencloseport()
 			//打开串口后进行IC查询，取出卡号
 			CByteArray Array;
 			Array.RemoveAll();
-            Array.SetSize(11);
-			for (int i=0; i<11; i++)
+            Array.SetSize(12);
+			for (int i=0; i<12; i++)
 			{
 				Array.SetAt(i,frame_IC_check[i]);
 			}
@@ -882,39 +882,46 @@ void CBeidouDlg::OnButtonSendMsg()
 	// TODO: Add your control notification handler code here
 //		CString sendTmp="";
 		UpdateData();
-		if (m_otherID==0)
+		if (m_target_number.GetLength()!=6)//(m_otherID==0)
 		{
-			AfxMessageBox("请输入对方卡号。");
+			AfxMessageBox("现在使用北斗通信，对方卡号请输入6位数字。");
 			return;
 		}
 		if(m_sendmsg!="")
 		{
-			unsigned char hexdata[100];
-			int len=strHex(m_sendmsg,hexdata,100);
+			int timer_range=(m_category>1)?m_category:60;//只有当北斗的服务频度获取到（>0）时，才根据其设置进度条，否则使用默认值60	
+			m_timer.SetRange(0,timer_range);
+			m_timer.SetPos(0);
+			m_timer.SetStep(1);//设置进度条的当前位置
+
+			unsigned char hexdata[250];
+			int len=strHex(m_sendmsg,hexdata,250);
 			CByteArray Array;
 			Array.RemoveAll();
-			int total_len=len+17;
+			int total_len=len+18;
 			Array.SetSize(total_len);
 
 			frame_MSG_check[5]=total_len/256;//数据包总长度
 			frame_MSG_check[6]=total_len%256;
+			
+			frame_MSG_check[10]=0x46;//默认使用“混编”方式发送数据
 
-			frame_MSG_check[10]=(unsigned char)(m_otherID/pow(2, 16));//对方ID
-			frame_MSG_check[11]=(unsigned char)(m_otherID/pow(2, 8));
-			frame_MSG_check[12]=(unsigned char)(m_otherID%256);
-
-			frame_MSG_check[13]=0x46;//默认使用“代码”方式发送数据
+			int target_id=_ttoi(m_target_number);
+			frame_MSG_check[11]=(unsigned char)(target_id/pow(2, 16));//对方ID
+			frame_MSG_check[12]=(unsigned char)(target_id/pow(2, 8));
+			frame_MSG_check[13]=(unsigned char)(target_id%256);
 
 			frame_MSG_check[14]=8*len/256;//电文长度
 			frame_MSG_check[15]=8*len%256;
 
-			
-			for (int i=0; i<16; i++)
+			frame_MSG_check[16]=0;//是否应答
+
+			for (int i=0; i<17; i++)
 			{
 				Array.SetAt(i,frame_MSG_check[i]);
 			}
 			int k=0;
-			for (int j=16; j<(len+16); j++)
+			for (int j=17; j<(len+17); j++)
 			{
 				Array.SetAt(j,hexdata[k]);
 				frame_MSG_check[j]=hexdata[k];
@@ -926,11 +933,13 @@ void CBeidouDlg::OnButtonSendMsg()
 			{
 				m_comm.SetOutput(COleVariant(Array));//发送数据
 			}
-		}
- 
-		SetTimer(1,60000,NULL);//61秒后使能
-		SetTimer(2,1000,NULL);
-		GetDlgItem(IDC_BUTTON_SEND)->EnableWindow(FALSE);
+			SetTimer(1,timer_range*1000,NULL);//61秒后使能
+			SetTimer(2,1000,NULL);
+			GetDlgItem(IDC_BUTTON_SEND)->EnableWindow(FALSE);
+		}else{
+			AfxMessageBox("请输入短信内容。");
+		} 
+		
 }
 
 void CBeidouDlg::OnButtonClear() 
@@ -954,8 +963,8 @@ void CBeidouDlg::OnButtonSystemcheck()
 
 	CByteArray Array;
 	Array.RemoveAll();
-	Array.SetSize(11);
-	for (int i=0; i<11; i++)
+	Array.SetSize(12);
+	for (int i=0; i<12; i++)
 	{
 		Array.SetAt(i,frame_SYS_check[i]);
 	}
@@ -975,8 +984,8 @@ void CBeidouDlg::OnButtonIccheck()
 	m_category=0;
 	CByteArray Array;
 	Array.RemoveAll();
-	Array.SetSize(11);
-	for (int i=0; i<11; i++)
+	Array.SetSize(12);
+	for (int i=0; i<12; i++)
 	{
 		Array.SetAt(i,frame_IC_check[i]);
 	}
@@ -1021,27 +1030,27 @@ void CBeidouDlg::DeIcc(unsigned char *BUFF)
 	unsigned int IccFrq;
 	unsigned char comlev;
 
-	_Useraddr=((long)BUFF[10])*pow(2, 16)+((long)BUFF[11])*pow(2, 8)+((long)BUFF[12]);
-	IccFrq= ((int)BUFF[13])*pow(2, 8)+((int)BUFF[14]);
+	_Useraddr=((long)BUFF[7])*pow(2, 16)+((long)BUFF[8])*pow(2, 8)+((long)BUFF[9]);
+	IccFrq= ((int)BUFF[15])*pow(2, 8)+((int)BUFF[16]);
 	comlev = BUFF[15];
 	
 	if ((comm_init==0)&&(_Useraddr!=0))//初次初始化串口，将卡号提出，完成各帧
 	{
 		comm_init=1;
-		frame_POWER_check[7]=BUFF[10];
-		frame_POWER_check[8]=BUFF[11];
-		frame_POWER_check[9]=BUFF[12];
-		frame_POWER_check[10]=0;
-		frame_POWER_check[11]=XOR(frame_POWER_check,11);
+//		frame_POWER_check[7]=BUFF[10];
+//		frame_POWER_check[8]=BUFF[11];
+//		frame_POWER_check[9]=BUFF[12];
+//		frame_POWER_check[10]=0;
+//		frame_POWER_check[11]=XOR(frame_POWER_check,11);
 
-		frame_SYS_check[7]=BUFF[10];
-		frame_SYS_check[8]=BUFF[11];
-		frame_SYS_check[9]=BUFF[12];
+		frame_SYS_check[7]=BUFF[7];
+		frame_SYS_check[8]=BUFF[8];
+		frame_SYS_check[9]=BUFF[9];
 		frame_SYS_check[10]=XOR(frame_SYS_check,10);
 
-		frame_MSG_check[7]=BUFF[10];
-		frame_MSG_check[8]=BUFF[11];
-		frame_MSG_check[9]=BUFF[12];
+		frame_MSG_check[7]=BUFF[7];
+		frame_MSG_check[8]=BUFF[8];
+		frame_MSG_check[9]=BUFF[9];
 		
 		GetDlgItem(IDC_BUTTON_SYSTEMCHECK)->EnableWindow(TRUE);
 		GetDlgItem(IDC_BUTTON3_POWERCHECK)->EnableWindow(TRUE);
@@ -1066,16 +1075,16 @@ void CBeidouDlg::decodeheads(unsigned char *BUFF)
 	
 	if(result==BUFF[len-1])
 	{
-		if(strncmp((const char *)BUFF, "$Sig_",5)==0) command_type= Sig;
-		else if (strncmp((const char *)BUFF, "$Pos_",5)==0) command_type= Pos;
-		else if (strncmp((const char *)BUFF, "$Msg_",5)==0) command_type= Msg;
-		else if (strncmp((const char *)BUFF, "$Bst_",5)==0) command_type= Bst;
-		else if (strncmp((const char *)BUFF, "$Icc_",5)==0) command_type= Icc;
-		else if (strncmp((const char *)BUFF, "$Sts_",5)==0) command_type= Sts;
-		else if (strncmp((const char *)BUFF, "$Zst_",5)==0) command_type= Zst;
-		else if (strncmp((const char *)BUFF, "$Zrd_",5)==0) command_type= Zrd;
-		else if (strncmp((const char *)BUFF, "$Tim_",5)==0) command_type= Tim;
-		else if (strncmp((const char *)BUFF, "$Fbk_",5)==0) command_type= FKXX;
+		if(strncmp((const char *)BUFF, "$GLZK",5)==0) command_type= Sig;//功率检测		
+		else if (strncmp((const char *)BUFF, "$TXXX",5)==0) command_type= Msg;//通信申请		
+		else if (strncmp((const char *)BUFF, "$ICXX",5)==0) command_type= Icc;//IC查询
+		else if (strncmp((const char *)BUFF, "$XTZJ",5)==0) command_type= Sts;//系统自检
+		else if (strncmp((const char *)BUFF, "$FKXX",5)==0) command_type= FKXX;//反馈信息
+		else if (strncmp((const char *)BUFF, "$Zst_",5)==0) command_type= Zst;//
+		else if (strncmp((const char *)BUFF, "$Zrd_",5)==0) command_type= Zrd;//
+		else if (strncmp((const char *)BUFF, "$Tim_",5)==0) command_type= Tim;//
+		else if (strncmp((const char *)BUFF, "$Bst_",5)==0) command_type= Bst;//
+		else if (strncmp((const char *)BUFF, "$DWSQ",5)==0) command_type= Pos;//
 		
 		switch(command_type)
 		{
@@ -1123,12 +1132,12 @@ unsigned char CBeidouDlg::XOR(unsigned char *BUFF, int len)
 
 void CBeidouDlg::DeSig(unsigned char *BUFF)
 {
-	long _Useraddr;
+//	long _Useraddr;
 	unsigned char Sigx[6]={0},power_buf=0;
 
 	for(short i = 0;i<6;i++)
 	Sigx[i]=BUFF[i+10];
-	_Useraddr=((long)BUFF[7])*pow(2, 16)+((long)BUFF[8])*pow(2, 8)+((long)BUFF[9]);
+//	_Useraddr=((long)BUFF[7])*pow(2, 16)+((long)BUFF[8])*pow(2, 8)+((long)BUFF[9]);
 
 	power_buf=(Sigx[0]>Sigx[1])?Sigx[0]:Sigx[1];
 	m_sata1.SetPos(power_buf);
@@ -1200,13 +1209,13 @@ void CBeidouDlg::DeMsg(unsigned char *BUFF)
  	CString strTmp,strDisp;
 	unsigned char rec_text[650]={0};//最多支持接收600个字符
  
- 	Recvaddr=((long)BUFF[10])*pow(2,16)+((long)BUFF[11])*pow(2,8)+((long)BUFF[12]);
- 	Hour = BUFF[13];
- 	Min = BUFF[14];
- 	len = ((int)BUFF[15])*pow(2,8)+((int)BUFF[16]);
+ 	Recvaddr=((long)BUFF[11])*pow(2,16)+((long)BUFF[12])*pow(2,8)+((long)BUFF[13]);
+ 	Hour = BUFF[14];
+ 	Min = BUFF[15];
+ 	len = ((int)BUFF[16])*pow(2,8)+((int)BUFF[17]);
  	for(i=0;i<(int)(len/8);i++)
  	{
- 		rec_text[i]=BUFF[17+i];
+ 		rec_text[i]=BUFF[18+i];
  	}
 
 	for (int j=0;j<(BUFF[5]*256+BUFF[6]);j++)
@@ -1239,28 +1248,28 @@ void CBeidouDlg::DeFKXX(unsigned char *BUFF)
 	switch(BUFF[10])
 	{
 	case 0x00:
-		m_FKXX="发送成功！";
+		m_FKXX="北斗消息，发送成功！";
 		break;
 	case 0x01:
-		m_FKXX="发送失败！";
+		m_FKXX="北斗消息，发送失败！";
 		break;
 	case 0x02:
-		m_FKXX="信号为锁定！";
+		m_FKXX="北斗的信号为锁定！";
 		break;
 	case 0x03:
-		m_FKXX="电量不足！";
+		m_FKXX="北斗的电量不足！";
 		break;
 	case 0x04:
-		m_FKXX="服务频度未到！\r\n请"+temp+"秒后再试。";
+		m_FKXX="北斗的服务频度未到！\r\n请"+temp+"秒后再试。";
 		break;
 	case 0x05:
-		m_FKXX="加解密错误！";
+		m_FKXX="北斗的加解密错误！";
 		break;
 	case 0x06:
-		m_FKXX="CRC错误！";
+		m_FKXX="北斗的CRC错误！";
 		break;
 	default:
-		m_FKXX="扩展功能。";
+		m_FKXX="北斗的扩展功能。";
 		break;
 		}
 	UpdateData(FALSE);
@@ -1323,8 +1332,9 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 	} 
 	else if(nIDEvent==2)
 	{
-		m_timer.StepIt();
-	if(m_timer.GetPos()==60){
+		m_timer.StepIt();//每秒中断一次，设置一次进度条的值
+		int timer_range=(m_category>1)?m_category:60;//只有当北斗的服务频度获取到（>0）时，才根据其设置进度条，否则使用默认值60
+	if(m_timer.GetPos()==timer_range){
 		m_timer.SetPos(0);
 		KillTimer(2);	
        }
