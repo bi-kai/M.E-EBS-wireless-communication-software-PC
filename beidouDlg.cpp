@@ -120,6 +120,8 @@ void CBeidouDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
 	//{{AFX_DATA_MAP(CBeidouDlg)
+	DDX_Control(pDX, IDC_STATIC_BOARD_LED_BD, m_board_led_BD);
+	DDX_Control(pDX, IDC_STATIC_BOARD_LED_WT, m_board_led_WT);
 	DDX_Control(pDX, IDC_STATIC_BOARD_LED_YW, m_board_led_YW);
 	DDX_Control(pDX, IDC_STATIC_YUNWEI, m_ctrlIconOpenoff_YW);
 	DDX_Control(pDX, IDC_COMBO_COMSELECT_YW, m_Com_YW);
@@ -237,6 +239,10 @@ BOOL CBeidouDlg::OnInitDialog()
 	SerialPortOpenCloseFlag_YW=0;
 	modulereset=FALSE;
 	soundswitch=FALSE;
+	for (int i=0;i<4;i++)
+	{
+		state_system[i]=0;//系统功能模块可用状态标志位
+	}
 
 	m_hIconRed  = AfxGetApp()->LoadIcon(IDI_ICON_RED);
 	m_hIconOff	= AfxGetApp()->LoadIcon(IDI_ICON_OFF);
@@ -532,9 +538,9 @@ void CBeidouDlg::OnComm1()
 			{
 				if (rxdata[0]=='$')
 				{
-					frameplus=0;
+					frameplus=0;//0:'$'为第一位；1：'$'在串的中间
 				} 
-				else//$出现在流的中间位置
+				else//'$'出现在流的中间位置
 				{
 					frameplus=1;
 					frame_index++;//上一条已接收，需要处理
@@ -543,12 +549,11 @@ void CBeidouDlg::OnComm1()
 				if (frame_index!=0)
 				{
 	//				frame_index++;//新的一帧到来
-					if(frameplus==1)
+					if(frameplus==1)//只有一次来两帧及以上时才进来，并且将确定是完整收到的帧进行处理。
 					{
-						frame_flag[frame_index-1]=1;
-						frame_len[frame_index-1]=framelen;
+						frame_flag[frame_index-1]=1;//上一个缓冲帧标记为待处理状态。
+						frame_len[frame_index-1]=framelen;//上一个缓冲帧长度记录下来。
 						framelen=0;
-//						unsigned char* frame_buf1=frame_receive[frame_index-1];
 						for (short i=0;i<received_frame_size;i++)
 						{
 							if (frame_flag[i]==1)
@@ -559,17 +564,18 @@ void CBeidouDlg::OnComm1()
 						}
 						
 					}
-					if(frame_index==received_frame_size)	frame_index=0;
+					if(frame_index==received_frame_size)frame_index=0;//缓存数组，用完一遍后，再从第一条开始用。默认不会一次把缓冲全部用完
 				}
 				
 			}
 			frame_receive[frame_index][framelen]=bt;
 			framelen++;
-			strTmp.Format("%02x ",bt);    //将字符送入临时变量strtemp存放
-			strDisp+=strTmp;  //加入接收编辑框对应字符串
+//			strTmp.Format("%02x ",bt);    //将字符送入临时变量strtemp存放
+//			strDisp+=strTmp;  //加入接收编辑框对应字符串
 			
-		}
-		if (framelen==(unsigned char)(frame_receive[frame_index][5]*256+frame_receive[frame_index][6]))
+		}//本次缓冲区中的内容全部取出，并存储起来
+
+		if (framelen==(frame_receive[frame_index][5]*256+frame_receive[frame_index][6]))//对本次接收的缓冲帧的最后一条（只有一条或多条中的最后一条），如果接收完毕，进行处理
 		{
 			//帧接收完成
 // 			CString buf;
@@ -579,7 +585,6 @@ void CBeidouDlg::OnComm1()
 			frame_len[frame_index]=framelen;
 			framelen=0;
 			frame_flag[frame_index]=1;
-//			unsigned char* frame_buf=frame_receive[frame_index];
 			for (short i=0;i<received_frame_size;i++)
 			{
 				if (frame_flag[i]==1)
@@ -588,14 +593,13 @@ void CBeidouDlg::OnComm1()
 					frame_flag[i]=0;//标记为未使用
 				}
 			}
-//			frame_index++;//收到完整的一帧
 			if(frame_index==received_frame_size) frame_index=0;
 			
 		}
 //		m_showmsg+=strDisp;
 //		m_showmsg+="\r\n";
 		UpdateData(FALSE);
-	}	
+	}//end of 串口事件	
 }
 
 
@@ -603,16 +607,30 @@ void CBeidouDlg::OnComm1()
 void CBeidouDlg::OnOpencloseport() 
 {
 	// TODO: Add your control notification handler code here
+// 	char buff[2];
+// 	CString string1="",string2="";
+// 	buff[1]='\0';
+// 	buff[0]=m_DParity;
+// 	string1.Format(_T("%d"),m_DBaud);
+// 	string1+=",";
+// 	string2=buff;
+// 	string1+=string2;
+// 	string1+=",";
+// 	string2.Format(_T("%d"),m_DDatabits); 
+// 	string1+=string2;
+// 	string1+=",";
+// 	string2.Format(_T("%d"),m_DStopbits);
+// 	string1+=string2;
 	CString string1="115200,n,8,1";
-	/*
+/*
 	CString   tmp;
 	tmp.Format( "%d ",string1);
 	MessageBox( "config:"+string1);
-	*/
+*/
 	if(SerialPortOpenCloseFlag==FALSE)
 	{
 		SerialPortOpenCloseFlag=TRUE;
-		
+
 		//以下是串口的初始化配置
 		if(m_comm.GetPortOpen())//打开端口前的检测，先关，再开
 			MessageBox("串口无法打开");
@@ -656,6 +674,10 @@ void CBeidouDlg::OnOpencloseport()
 		m_ctrlIconOpenoff.SetIcon(m_hIconOff);
 		m_comm.SetPortOpen(FALSE);//关闭串口
 		m_StatBar->SetText("北斗：已断开",3,0);
+
+		m_board_led_BD.SetIcon(m_hIconOff);
+		GetDlgItem(IDC_STATIC_BOARDCONNECT_BD)->SetWindowText(" 北斗已断开！");
+		
 		GetDlgItem(IDC_BUTTON_SYSTEMCHECK)->EnableWindow(FALSE);
 		GetDlgItem(IDC_BUTTON_ICCHECK)->EnableWindow(FALSE);
 		GetDlgItem(IDC_BUTTON3_POWERCHECK)->EnableWindow(FALSE);
@@ -667,7 +689,9 @@ void CBeidouDlg::OnOpencloseport()
 void CBeidouDlg::OnSelendokComboComselect() 
 {
 	// TODO: Add your control notification handler code here
-	m_DCom=m_Com.GetCurSel()+1;
+	CBeidouApp *app = (CBeidouApp *)AfxGetApp(); //生成指向应用程序类的指针
+	app->m_nCom=m_Com.GetCurSel()+1;
+	m_DCom=app->m_nCom;
 	UpdateData();	
 
 	CString strTemp;
@@ -678,175 +702,175 @@ void CBeidouDlg::OnSelendokComboComselect()
 	::WritePrivateProfileString("ConfigInfo","com_r",strTemp,".\\config_phonemessage.ini");
 }
 
-//DEL void CBeidouDlg::OnSelendokComboSpeed() 
-//DEL {
-//DEL 	// TODO: Add your control notification handler code here
-//DEL 	int i=m_Speed.GetCurSel();
-//DEL 
-//DEL 	CString strTemp;
-//DEL 	strTemp.Format(_T("%d"),i);
-//DEL 	::WritePrivateProfileString("ConfigInfo","speed",strTemp,".\\config_phonemessage.ini");
-//DEL 
-//DEL 	switch(i)
-//DEL 	{
-//DEL // 	case 0:
-//DEL // 		i=300;
-//DEL // 		break;
-//DEL // 	case 1:
-//DEL // 		i=600;
-//DEL // 		break;
-//DEL // 	case 2:
-//DEL // 		i=1200;
-//DEL // 		break;
-//DEL // 	case 3:
-//DEL // 		i=2400;
-//DEL // 		break;
-//DEL // 	case 4:
-//DEL // 		i=4800;
-//DEL // 		break;
-//DEL // 	case 5:
-//DEL // 		i=9600;
-//DEL // 		break;
-//DEL // 	case 6:
-//DEL // 		i=19200;
-//DEL // 		break;
-//DEL // 	case 7:
-//DEL // 		i=38400;
-//DEL // 		break;
-//DEL // 	case 8:
-//DEL // 		i=43000;
-//DEL // 		break;
-//DEL // 	case 9:
-//DEL // 		i=56000;
-//DEL // 		break;
-//DEL // 	case 10:
-//DEL // 		i=57600;
-//DEL // 		break;
-//DEL // 	case 11:
-//DEL // 		i=115200;
-//DEL // 		break;
-//DEL // 	default:
-//DEL // 		break;
-//DEL 	case 0:
-//DEL 		i=9600;
-//DEL 		break;
-//DEL 	case 1:
-//DEL 		i=19200;
-//DEL 		break;
-//DEL 	case 2:
-//DEL 		i=43000;
-//DEL 		break;
-//DEL 	case 3:
-//DEL 		i=56000;
-//DEL 		break;
-//DEL 	case 4:
-//DEL 		i=57600;
-//DEL 		break;
-//DEL 	case 5:
-//DEL 		i=115200;
-//DEL 		break;
-//DEL 	default:
-//DEL 		break;
-//DEL 		
-//DEL 	}
-//DEL 	CBeidouApp *app = (CBeidouApp *)AfxGetApp(); //生成指向应用程序类的指针
-//DEL 	app->m_nBaud=i;
-//DEL 	m_DBaud=app->m_nBaud;
-//DEL 	UpdateData();	
-//DEL 
-//DEL 	strTemp.Format(_T("%d"),m_DBaud);
-//DEL 	::WritePrivateProfileString("ConfigInfo","speed_r",strTemp,".\\config_phonemessage.ini");
-//DEL 
-//DEL }
-
-//DEL void CBeidouDlg::OnSelendokComboParity() 
-//DEL {
-//DEL 	// TODO: Add your control notification handler code here
-//DEL 	char temp;
-//DEL 	int i=m_Parity.GetCurSel();
-//DEL 
-//DEL 	CString strTemp;
-//DEL 	strTemp.Format(_T("%d"),i);
-//DEL 	::WritePrivateProfileString("ConfigInfo","parity",strTemp,".\\config_phonemessage.ini");
-//DEL 
-//DEL 	switch(i)
-//DEL 	{
-//DEL 	case 0:
-//DEL 		temp='N';
-//DEL 		break;
-//DEL 	case 1:
-//DEL 		temp='O';
-//DEL 		break;
-//DEL 	case 2:
-//DEL 		temp='E';
-//DEL 		break;
-//DEL 	}
-//DEL 	CBeidouApp *app = (CBeidouApp *)AfxGetApp(); //生成指向应用程序类的指针
-//DEL 	app->m_cParity=temp;
-//DEL 	m_DParity=app->m_cParity;
-//DEL 	UpdateData();	
-//DEL 
-//DEL 	strTemp.Format(_T("%c"),m_DParity);
-//DEL 	::WritePrivateProfileString("ConfigInfo","parity_r",strTemp,".\\config_phonemessage.ini");
-//DEL 
-//DEL }
-
-//DEL void CBeidouDlg::OnSelendokComboDatabits() 
-//DEL {
-//DEL 	// TODO: Add your control notification handler code here
-//DEL 	int i=m_DataBits.GetCurSel();
-//DEL 
-//DEL 	CString strTemp;
-//DEL 	strTemp.Format(_T("%d"),i);
-//DEL 	::WritePrivateProfileString("ConfigInfo","databits",strTemp,".\\config_phonemessage.ini");
-//DEL 
-//DEL 	switch(i)
-//DEL 	{
-//DEL 	case 0:
-//DEL 		i=8;
-//DEL 		break;
-//DEL 	case 1:
-//DEL 		i=7;
-//DEL 		break;
-//DEL 	case 2:
-//DEL 		i=6;
-//DEL 		break;
-//DEL 	}
-//DEL 	CBeidouApp *app = (CBeidouApp *)AfxGetApp(); //生成指向应用程序类的指针
-//DEL 	app->m_nDatabits=i;
-//DEL 	m_DDatabits=app->m_nDatabits;
-//DEL 	UpdateData();
-//DEL 	
-//DEL 	strTemp.Format(_T("%d"),m_DDatabits);
-//DEL 	::WritePrivateProfileString("ConfigInfo","databits_r",strTemp,".\\config_phonemessage.ini");
-//DEL }
-
-//DEL void CBeidouDlg::OnSelendokComboStopbits() 
-//DEL {
-//DEL 	// TODO: Add your control notification handler code here
-//DEL 	int i=m_StopBits.GetCurSel();
-//DEL 
-//DEL 	CString strTemp;
-//DEL 	strTemp.Format(_T("%d"),i);
-//DEL 	::WritePrivateProfileString("ConfigInfo","stopbits",strTemp,".\\config_phonemessage.ini");
-//DEL 
-//DEL 	switch(i)
-//DEL 	{
-//DEL 	case 0:
-//DEL 		i=1;
-//DEL 		break;
-//DEL 	case 1:
-//DEL 		i=2;
-//DEL 		break;
-//DEL 	}
-//DEL 	CBeidouApp *app = (CBeidouApp *)AfxGetApp(); //生成指向应用程序类的指针
-//DEL 	app->m_nStopbits=i;
-//DEL 	m_DStopbits=app->m_nStopbits;
-//DEL 	UpdateData();
-//DEL 	
-//DEL 	strTemp.Format(_T("%d"),m_DStopbits);
-//DEL 	::WritePrivateProfileString("ConfigInfo","stopbits_r",strTemp,".\\config_phonemessage.ini");
-//DEL }
+// void CBeidouDlg::OnSelendokComboSpeed() 
+// {
+// 	// TODO: Add your control notification handler code here
+// 	int i=m_Speed.GetCurSel();
+// 
+// 	CString strTemp;
+// 	strTemp.Format(_T("%d"),i);
+// 	::WritePrivateProfileString("ConfigInfo","speed",strTemp,".\\config_phonemessage.ini");
+// 
+// 	switch(i)
+// 	{
+// // 	case 0:
+// // 		i=300;
+// // 		break;
+// // 	case 1:
+// // 		i=600;
+// // 		break;
+// // 	case 2:
+// // 		i=1200;
+// // 		break;
+// // 	case 3:
+// // 		i=2400;
+// // 		break;
+// // 	case 4:
+// // 		i=4800;
+// // 		break;
+// // 	case 5:
+// // 		i=9600;
+// // 		break;
+// // 	case 6:
+// // 		i=19200;
+// // 		break;
+// // 	case 7:
+// // 		i=38400;
+// // 		break;
+// // 	case 8:
+// // 		i=43000;
+// // 		break;
+// // 	case 9:
+// // 		i=56000;
+// // 		break;
+// // 	case 10:
+// // 		i=57600;
+// // 		break;
+// // 	case 11:
+// // 		i=115200;
+// // 		break;
+// // 	default:
+// // 		break;
+// 	case 0:
+// 		i=9600;
+// 		break;
+// 	case 1:
+// 		i=19200;
+// 		break;
+// 	case 2:
+// 		i=43000;
+// 		break;
+// 	case 3:
+// 		i=56000;
+// 		break;
+// 	case 4:
+// 		i=57600;
+// 		break;
+// 	case 5:
+// 		i=115200;
+// 		break;
+// 	default:
+// 		break;
+// 		
+// 	}
+// 	CBeidouApp *app = (CBeidouApp *)AfxGetApp(); //生成指向应用程序类的指针
+// 	app->m_nBaud=i;
+// 	m_DBaud=app->m_nBaud;
+// 	UpdateData();	
+// 
+// 	strTemp.Format(_T("%d"),m_DBaud);
+// 	::WritePrivateProfileString("ConfigInfo","speed_r",strTemp,".\\config_phonemessage.ini");
+// 
+// }
+// 
+// void CBeidouDlg::OnSelendokComboParity() 
+// {
+// 	// TODO: Add your control notification handler code here
+// 	char temp;
+// 	int i=m_Parity.GetCurSel();
+// 
+// 	CString strTemp;
+// 	strTemp.Format(_T("%d"),i);
+// 	::WritePrivateProfileString("ConfigInfo","parity",strTemp,".\\config_phonemessage.ini");
+// 
+// 	switch(i)
+// 	{
+// 	case 0:
+// 		temp='N';
+// 		break;
+// 	case 1:
+// 		temp='O';
+// 		break;
+// 	case 2:
+// 		temp='E';
+// 		break;
+// 	}
+// 	CBeidouApp *app = (CBeidouApp *)AfxGetApp(); //生成指向应用程序类的指针
+// 	app->m_cParity=temp;
+// 	m_DParity=app->m_cParity;
+// 	UpdateData();	
+// 
+// 	strTemp.Format(_T("%c"),m_DParity);
+// 	::WritePrivateProfileString("ConfigInfo","parity_r",strTemp,".\\config_phonemessage.ini");
+// 
+// }
+// 
+// void CBeidouDlg::OnSelendokComboDatabits() 
+// {
+// 	// TODO: Add your control notification handler code here
+// 	int i=m_DataBits.GetCurSel();
+// 
+// 	CString strTemp;
+// 	strTemp.Format(_T("%d"),i);
+// 	::WritePrivateProfileString("ConfigInfo","databits",strTemp,".\\config_phonemessage.ini");
+// 
+// 	switch(i)
+// 	{
+// 	case 0:
+// 		i=8;
+// 		break;
+// 	case 1:
+// 		i=7;
+// 		break;
+// 	case 2:
+// 		i=6;
+// 		break;
+// 	}
+// 	CBeidouApp *app = (CBeidouApp *)AfxGetApp(); //生成指向应用程序类的指针
+// 	app->m_nDatabits=i;
+// 	m_DDatabits=app->m_nDatabits;
+// 	UpdateData();
+// 	
+// 	strTemp.Format(_T("%d"),m_DDatabits);
+// 	::WritePrivateProfileString("ConfigInfo","databits_r",strTemp,".\\config_phonemessage.ini");
+// }
+// 
+// void CBeidouDlg::OnSelendokComboStopbits() 
+// {
+// 	// TODO: Add your control notification handler code here
+// 	int i=m_StopBits.GetCurSel();
+// 
+// 	CString strTemp;
+// 	strTemp.Format(_T("%d"),i);
+// 	::WritePrivateProfileString("ConfigInfo","stopbits",strTemp,".\\config_phonemessage.ini");
+// 
+// 	switch(i)
+// 	{
+// 	case 0:
+// 		i=1;
+// 		break;
+// 	case 1:
+// 		i=2;
+// 		break;
+// 	}
+// 	CBeidouApp *app = (CBeidouApp *)AfxGetApp(); //生成指向应用程序类的指针
+// 	app->m_nStopbits=i;
+// 	m_DStopbits=app->m_nStopbits;
+// 	UpdateData();
+// 	
+// 	strTemp.Format(_T("%d"),m_DStopbits);
+// 	::WritePrivateProfileString("ConfigInfo","stopbits_r",strTemp,".\\config_phonemessage.ini");
+// }
 
 void CBeidouDlg::OnButtonSendMsg() 
 {
@@ -1003,12 +1027,9 @@ void CBeidouDlg::DeIcc(unsigned char *BUFF)
 	unsigned int IccFrq;
 	unsigned char comlev;
 
-	_Useraddr=(long)((long)BUFF[7])*pow(2, 16)+((long)BUFF[8])*pow(2, 8)+((long)BUFF[9]);
+	_Useraddr=((long)BUFF[7])*pow(2, 16)+((long)BUFF[8])*pow(2, 8)+((long)BUFF[9]);
 	IccFrq= ((int)BUFF[15])*pow(2, 8)+((int)BUFF[16]);
 	comlev = BUFF[15];
-
-	GetDlgItem(IDC_STATIC_BOARD_LED_BD)->SetIcon(m_hIconRed);
-	GetDlgItem(IDC_STATIC_BOARDCONNECT_BD)->SetWindowText(" 北斗已连接！"); 
 	
 	if ((comm_init==0)&&(_Useraddr!=0))//初次初始化串口，将卡号提出，完成各帧
 	{
@@ -1063,6 +1084,9 @@ void CBeidouDlg::decodeheads(unsigned char *BUFF)
 		else if (strncmp((const char *)BUFF, "$Tim_",5)==0) command_type= Tim;//
 		else if (strncmp((const char *)BUFF, "$Bst_",5)==0) command_type= Bst;//
 		else if (strncmp((const char *)BUFF, "$DWSQ",5)==0) command_type= Pos;//
+
+		m_board_led_BD.SetIcon(m_hIconRed);
+		GetDlgItem(IDC_STATIC_BOARDCONNECT_BD)->SetWindowText(" 北斗已连接！"); 
 		
 		switch(command_type)
 		{
@@ -1371,10 +1395,8 @@ void CBeidouDlg::OnButtonSet()
 		if (switch_state==0)//打电话
 		{
 			SetWindowPos(NULL,0,0,rectSmall.Width(),rectSmall.Height(),SWP_NOMOVE|SWP_NOZORDER);
-			GetDlgItem(IDC_BUTTON_CALL)->ShowWindow(SW_SHOW);
 		}else if(switch_state==1){//发短信
 			SetWindowPos(NULL,0,0,rectMiddle.Width(),rectMiddle.Height(),SWP_NOMOVE|SWP_NOZORDER);
-			GetDlgItem(IDC_BUTTON_CALL)->ShowWindow(SW_HIDE);
 		}
 		
 	}
@@ -1390,7 +1412,6 @@ void CBeidouDlg::OnButtonPhone()
 	// TODO: Add your control notification handler code here
 	switch_state=0;//打电话
  	SetWindowPos(NULL,0,0,rectSmall.Width(),rectSmall.Height(),SWP_NOMOVE|SWP_NOZORDER);
-	GetDlgItem(IDC_BUTTON_CALL)->ShowWindow(SW_SHOW);
  	SetDlgItemText(IDC_BUTTON_SET,"配置");
 }
 
@@ -1399,7 +1420,6 @@ void CBeidouDlg::OnButtonMessage()
 	// TODO: Add your control notification handler code here
 	switch_state=1;//发短信
 	SetWindowPos(NULL,0,0,rectMiddle.Width(),rectMiddle.Height(),SWP_NOMOVE|SWP_NOZORDER);
-	GetDlgItem(IDC_BUTTON_CALL)->ShowWindow(SW_HIDE);
 	SetDlgItemText(IDC_BUTTON_SET,"配置");
 }
 
@@ -1438,8 +1458,8 @@ void CBeidouDlg::OnComm_WT()
 		}
 	
 	m_StatBar->SetText("有线电话：已连接",0,0);
-	GetDlgItem(IDC_STATIC_BOARD_LED_WT)->SetIcon(m_hIconRed);
-	GetDlgItem(IDC_STATIC_BOARDCONNECT_WT)->SetWindowText(" 北斗已连接！"); 
+	m_board_led_WT.SetIcon(m_hIconRed);
+	GetDlgItem(IDC_STATIC_BOARDCONNECT_WT)->SetWindowText(" 有线电话已连接！"); 
 
 	if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='N'))//检测是否为DTMF信号
 	{
@@ -1616,6 +1636,9 @@ void CBeidouDlg::OnOpencloseportWT()
 		m_StatBar->SetText("有线电话：已断开",0,0);
 		m_openoff_WT.SetIcon(m_hIconOff);
 		m_comm_WT.SetPortOpen(FALSE);//关闭串口
+
+		m_board_led_WT.SetIcon(m_hIconOff);
+		GetDlgItem(IDC_STATIC_BOARDCONNECT_WT)->SetWindowText(" 有线电话已断开！"); 
 
 		GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
 	}
@@ -2036,7 +2059,7 @@ void CBeidouDlg::OnComm_YW()
 	{
 		flag_com_init_ack_YW=1;
 		m_board_led_YW.SetIcon(m_hIconRed);
-		GetDlgItem(IDC_STATIC_BOARDCONNECT2)->SetWindowText(" 运维板已连接！"); 
+		GetDlgItem(IDC_STATIC_BOARDCONNECT_YW)->SetWindowText(" 运维板已连接！"); 
 		timer_board_disconnect_times_YW=0;//收到反馈则清零
 		UpdateData(FALSE);
 		
@@ -2123,16 +2146,30 @@ void CBeidouDlg::OnComm_YW()
 void CBeidouDlg::OnButtonConnect_YW() 
 {
 	// TODO: Add your control notification handler code here
+// 	char buff[2];
+// 	CString string1="",string2="";
+// 	buff[1]='\0';
+// 	buff[0]=m_DParity;
+// 	string1.Format(_T("%d"),m_DBaud);
+// 	string1+=",";
+// 	string2=buff;
+// 	string1+=string2;
+// 	string1+=",";
+// 	string2.Format(_T("%d"),m_DDatabits); 
+// 	string1+=string2;
+// 	string1+=",";
+// 	string2.Format(_T("%d"),m_DStopbits);
+// 	string1+=string2;
 	CString string1="115200,n,8,1";
-	/*
+/*
 	CString   tmp;
 	tmp.Format( "%d ",string1);
 	MessageBox( "config:"+string1);
-	*/
+*/
 	if(SerialPortOpenCloseFlag_YW==FALSE)
 	{
 		SerialPortOpenCloseFlag_YW=TRUE;
-		
+
 		//以下是串口的初始化配置
 		if(m_comm_YW.GetPortOpen())//打开端口前的检测，先关，再开
 			MessageBox("can not open serial port");
@@ -2194,7 +2231,7 @@ void CBeidouDlg::OnButtonConnect_YW()
 		m_StatBar->SetText("运维板状态：串口已关闭",4,0); //以下类似
 		m_ctrlIconOpenoff_YW.SetIcon(m_hIconOff);
 		m_board_led_YW.SetIcon(m_hIconOff);
-		GetDlgItem(IDC_STATIC_BOARDCONNECT2)->SetWindowText(" 运维板未连接！");
+		GetDlgItem(IDC_STATIC_BOARDCONNECT_YW)->SetWindowText(" 运维板未连接！");
 		flag_com_init_ack_YW=0;//运维板未连接
 		m_comm_YW.SetPortOpen(FALSE);//关闭串口
 		KillTimer(6);

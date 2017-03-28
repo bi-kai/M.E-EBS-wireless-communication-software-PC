@@ -11,7 +11,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#define PHONEID 1   //暂把电话的标识设为1,3G和卫星可设为2,3，后可以统一规划
+#define PHONEID 1   //暂把电话的标识设为1,3G和卫星可设为2,卫星电话3,后可以统一规划
 #define G3ID 2
 #define SATELLITEID 3
 #define AUTORESPONSE_TIME 20000//20s未输入，则自动挂断
@@ -44,8 +44,7 @@ public:
 	CRect rectSeparator;
 
 	int switch_state;//顶部通信模式串口切换标志位，区分接下来是要打电话还是发短信，0：打电话窗口；1：发短信窗口；
-//	int state_phone[3];//打电话功能模块可用状态标志。[0]：有线电话可用状态标志0：不可用，1：可用；[1]：3G电话状态；[2]：卫星电话状态；
-//	int state_message[2];//[0]：3G短信状态；[1]：北斗短信状态；
+	bool state_system[4];//本软件功能模块可用状态标志。[0]：有线电话可用状态标志0：不可用，1：可用；[1]：3G电话状态；[2]：卫星电话状态；[3]：北斗状态；
 
 	int m_DCom;//北斗串口号
 	int m_DCom_WT;//有线电话串口号
@@ -80,10 +79,13 @@ public:
 	int timer_board_disconnect_times_YW;//定时器6统计尝试连接次数，达到3次则判断运维板未连接
 	bool modulereset;//手动复位按钮的触发器.
 	bool soundswitch;//音频信号源手动切换
+	/***************3G电话**************************/
 
 // Dialog Data
 	//{{AFX_DATA(CBeidouDlg)
 	enum { IDD = IDD_BEIDOU_DIALOG };
+	CStatic	m_board_led_BD;
+	CStatic	m_board_led_WT;
 	CStatic	m_board_led_YW;
 	CStatic	m_ctrlIconOpenoff_YW;
 	CComboBox	m_Com_YW;

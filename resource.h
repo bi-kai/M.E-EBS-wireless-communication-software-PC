@@ -11,10 +11,6 @@
 #define IDI_ICON_RED                    131
 #define IDC_MSCOMM1                     1003
 #define IDC_COMBO_COMSELECT             1006
-#define IDC_COMBO_SPEED                 1007
-#define IDC_COMBO_PARITY                1008
-#define IDC_COMBO_DATABITS              1009
-#define IDC_COMBO_STOPBITS              1010
 #define IDC_OPENCLOSEPORT               1011
 #define IDC_COMBO_STOPBITS2             1012
 #define IDC_COMBO_COMSELECT_WT          1013
@@ -24,6 +20,8 @@
 #define IDC_MODULE_RESET                1017
 #define IDC_MODULE_RESET2               1018
 #define IDC_SOUND_SWITCH                1018
+#define IDC_COMBO_COMSELECT_3G          1019
+#define IDC_BUTTON_CONNECT3G            1020
 #define IDC_EDIT_RECEIVEMSG             1022
 #define IDC_BUTTON_SEND                 1023
 #define IDC_BUTTON_PHONE                1024
@@ -73,12 +71,14 @@
 #define IDC_STATIC_BOARD_LED_YW         1064
 #define IDC_BUTTON_CLEAR1               1065
 #define IDC_BUTTON_CLEARMSG             1065
-#define IDC_STATIC_BOARDCONNECT2        1066
+#define IDC_STATIC_BOARDCONNECT_YW      1066
 #define IDC_STATIC_BOARD_LED_BD         1067
 #define IDC_STATIC_BOARDCONNECT_BD      1068
 #define IDC_STATIC_BOARD_LED_WT         1069
-#define IDC_STATIC_BOARDCONNECT_BD2     1070
 #define IDC_STATIC_BOARDCONNECT_WT      1070
+#define IDC_STATIC_3G                   1071
+#define IDC_STATIC_BOARD_LED_3G         1072
+#define IDC_STATIC_BOARDCONNECT_3G      1073
 
 // Next default values for new objects
 // 
