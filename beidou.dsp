@@ -53,7 +53,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 /nologo /subsystem:windows /machine:I386
-# ADD LINK32 SkinPPWTL.lib winmm.lib /nologo /subsystem:windows /machine:I386
+# ADD LINK32 SkinPPWTL.lib /nologo /subsystem:windows /machine:I386
 
 !ELSEIF  "$(CFG)" == "beidou - Win32 Debug"
 
@@ -79,7 +79,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 /nologo /subsystem:windows /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 SkinPPWTL.lib winmm.lib /nologo /subsystem:windows /debug /machine:I386 /pdbtype:sept
+# ADD LINK32 SkinPPWTL.lib /nologo /subsystem:windows /debug /machine:I386 /pdbtype:sept
 
 !ENDIF 
 
@@ -90,10 +90,6 @@ LINK32=link.exe
 # Begin Group "Source Files"
 
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
-# Begin Source File
-
-SOURCE=.\3G.cpp
-# End Source File
 # Begin Source File
 
 SOURCE=.\beidou.cpp
@@ -112,25 +108,13 @@ SOURCE=.\mscomm.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=.\SerialPort.cpp
-# End Source File
-# Begin Source File
-
 SOURCE=.\StdAfx.cpp
 # ADD CPP /Yc"stdafx.h"
-# End Source File
-# Begin Source File
-
-SOURCE=.\tts.cpp
 # End Source File
 # End Group
 # Begin Group "Header Files"
 
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
-# Begin Source File
-
-SOURCE=.\3G.h
-# End Source File
 # Begin Source File
 
 SOURCE=.\beidou.h
@@ -149,19 +133,11 @@ SOURCE=.\Resource.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\SerialPort.h
-# End Source File
-# Begin Source File
-
 SOURCE=.\SkinPPWTL.h
 # End Source File
 # Begin Source File
 
 SOURCE=.\StdAfx.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\tts.h
 # End Source File
 # End Group
 # Begin Group "Resource Files"
