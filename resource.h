@@ -71,6 +71,8 @@
 #define IDC_STATIC_YUNWEI               1062
 #define IDC_MSCOMM_YW                   1063
 #define IDC_STATIC_BOARD_LED_YW         1064
+#define IDC_BUTTON_CLEAR1               1065
+#define IDC_BUTTON_CLEARMSG             1065
 #define IDC_STATIC_BOARDCONNECT2        1066
 
 // Next default values for new objects

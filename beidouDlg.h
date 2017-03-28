@@ -11,6 +11,11 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
+#define PHONEID 1   //暂把电话的标识设为1,3G和卫星可设为2,3，后可以统一规划
+#define G3ID 2
+#define SATELLITEID 3
+#define AUTORESPONSE_TIME 20000//20s未输入，则自动挂断
+#define NOPICKUP_TIME 60000//60s未接听，则自动挂断
 /////////////////////////////////////////////////////////////////////////////
 // CBeidouDlg dialog
 
@@ -62,7 +67,8 @@ public:
 	int WT_state;//有线电话状态。0：空闲；1：摘机；2：拨号；3：通话；4：；
 	int m_DCom_WT;
 	CString call_in_number;//打进来的电话号码
-	bool flag_PW_busy;//有线电话状态。1:打电话中;0：空闲中；
+	bool flag_PW_in_busy;//有线电话接听电话状态。1:接电话中;0：空闲中；
+	bool flag_PW_out_busy;//有线电话拨出电话状态。1:拨出电话中;0：空闲中；
 	CString send_string;//被叫后，传号的号码，以#结束
 	/***************运维******************************/
 	BOOL SerialPortOpenCloseFlag_YW;//运维串口打开关闭标志位
@@ -171,6 +177,7 @@ protected:
 	afx_msg void OnSelendokComboComselectYw();
 	afx_msg void OnModuleReset();
 	afx_msg void OnSoundSwitch();
+	afx_msg void OnButtonClearmsg();
 	DECLARE_EVENTSINK_MAP()
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()

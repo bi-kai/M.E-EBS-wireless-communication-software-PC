@@ -13,7 +13,7 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// Chinese (中国) resources
+// Chinese (P.R.C.) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
 #ifdef _WIN32
@@ -150,7 +150,7 @@ BEGIN
                     ES_AUTOHSCROLL | ES_READONLY | ES_NUMBER
     COMBOBOX        IDC_COMBO_STOPBITS2,341,183,42,73,CBS_DROPDOWN | NOT 
                     WS_VISIBLE | WS_VSCROLL | WS_TABSTOP
-    EDITTEXT        IDC_EDIT_FKXX,14,67,171,64,ES_MULTILINE | ES_AUTOHSCROLL | 
+    EDITTEXT        IDC_EDIT_FKXX,14,67,139,64,ES_MULTILINE | ES_AUTOHSCROLL | 
                     ES_READONLY | WS_VSCROLL | WS_HSCROLL,
                     WS_EX_DLGMODALFRAME | WS_EX_CLIENTEDGE | 
                     WS_EX_STATICEDGE
@@ -202,6 +202,7 @@ BEGIN
                     SS_CENTERIMAGE | SS_SUNKEN | WS_BORDER
     PUSHBUTTON      "手动复位",IDC_MODULE_RESET,520,139,48,19
     PUSHBUTTON      "音频切换",IDC_SOUND_SWITCH,575,139,48,19
+    PUSHBUTTON      "清空",IDC_BUTTON_CLEARMSG,156,70,27,58
 END
 
 
@@ -447,7 +448,7 @@ BEGIN
     IDS_ABOUTBOX            "关于 beidou(&A)..."
 END
 
-#endif    // Chinese (中国) resources
+#endif    // Chinese (P.R.C.) resources
 /////////////////////////////////////////////////////////////////////////////
 
 

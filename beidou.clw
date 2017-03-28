@@ -28,7 +28,7 @@ Type=0
 HeaderFile=beidouDlg.h
 ImplementationFile=beidouDlg.cpp
 Filter=D
-LastObject=CBeidouDlg
+LastObject=IDC_EDIT_FKXX
 BaseClass=CDialog
 VirtualFilter=dWC
 
@@ -50,7 +50,7 @@ Control4=IDOK,button,1342373889
 [DLG:IDD_BEIDOU_DIALOG]
 Type=1
 Class=CBeidouDlg
-ControlCount=83
+ControlCount=84
 Control1=IDC_STATIC,static,1342308352
 Control2=IDC_MSCOMM1,{648A5600-2C6E-101B-82B6-000000000014},1342242816
 Control3=IDC_STATIC,button,1342177287
@@ -134,4 +134,5 @@ Control80=IDC_STATIC_BOARD_LED_YW,static,1342177283
 Control81=IDC_STATIC_BOARDCONNECT2,static,1350701569
 Control82=IDC_MODULE_RESET,button,1342242816
 Control83=IDC_SOUND_SWITCH,button,1342242816
+Control84=IDC_BUTTON_CLEARMSG,button,1342242816
 

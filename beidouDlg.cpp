@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <mmsystem.h>
 #pragma comment(lib,"WINMM.LIB")
+#include "autoResponse.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -203,6 +204,7 @@ BEGIN_MESSAGE_MAP(CBeidouDlg, CDialog)
 	ON_CBN_SELENDOK(IDC_COMBO_COMSELECT_YW, OnSelendokComboComselectYw)
 	ON_BN_CLICKED(IDC_MODULE_RESET, OnModuleReset)
 	ON_BN_CLICKED(IDC_SOUND_SWITCH, OnSoundSwitch)
+	ON_BN_CLICKED(IDC_BUTTON_CLEARMSG, OnButtonClearmsg)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -291,13 +293,13 @@ BOOL CBeidouDlg::OnInitDialog()
 	m_comm.SetRThreshold(1); //参数1表示每当串口接收缓冲区中有多于或等于1个字符时将引发一个接收数据的OnComm事件
 	m_comm.SetInputLen(0); //设置当前接收区数据长度为0
 	//	 m_comm.GetInput();    //先预读缓冲区以清除残留数据
-/********************2、北斗串口配置***********************************/	
+/********************2、有线电话串口配置***********************************/	
 	m_comm_WT.SetCommPort(2); //选择com2
 	m_comm_WT.SetInputMode(1); //输入方式为二进制方式
 	m_comm_WT.SetInBufferSize(1024); //设置输入缓冲区大小
 	m_comm_WT.SetOutBufferSize(10240); //设置输出缓冲区大小
 	m_comm_WT.SetSettings("1200,n,8,1"); //波特率1200，无校验，8个数据位，1个停止位	 
-	m_comm_WT.SetRThreshold(7); //参数1表示每当串口接收缓冲区中有多于或等于1个字符时将引发一个接收数据的OnComm事件
+	m_comm_WT.SetRThreshold(1); //参数1表示每当串口接收缓冲区中有多于或等于1个字符时将引发一个接收数据的OnComm事件
 	m_comm_WT.SetInputLen(0); //设置当前接收区数据长度为0
 	//	 m_comm_WT.GetInput();    //先预读缓冲区以清除残留数据
 /********************3、运维串口配置***********************************/	
@@ -449,8 +451,8 @@ BOOL CBeidouDlg::OnInitDialog()
 	/*********************************************************************/
 	switch_state=0;//打电话
 	WT_state=0;//电话机状态，初始化置为空闲
-	flag_PW_busy=0;
-	
+	flag_PW_in_busy=0;//初始值
+	flag_PW_out_busy=0;//初始值
 	
 	return TRUE;  // return TRUE  unless you set the focus to a control
 	}
@@ -1332,11 +1334,23 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 		OnButtonCall();//使摘机动作对用户透明，先操作一次摘机再调用一次，用于拨号
 		KillTimer(3);
 	}else if(nIDEvent==4){//对方未拨通，而挂机，将拨打电话按钮上的文本重置
-		GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
-		flag_PW_busy=0;//标志挂断状态
+
 		KillTimer(4);
 	}
 	//////////////////////以上用于有线电话/////////////////////////////////
+	//-----------------自动应答：5 S----------------------
+	else if (nIDEvent==33)  
+	{
+		KillTimer(33);
+		if((flag_PW_in_busy==1)||(flag_PW_out_busy==1))OnButtonCall();//对方输入操作超时，挂机
+	}else if (nIDEvent==34)
+	{
+		KillTimer(34);
+		PlaySound(".//Wav//NoResponse.wav", NULL, SND_FILENAME|SND_ASYNC);//对不起，无人应答，请稍微再试
+		if((flag_PW_in_busy==1)||(flag_PW_out_busy==1))OnButtonCall();//本机超时未摘机，挂机		
+	}
+	//-----------------自动应答：5 E----------------------
+	///////////////////////以上用于自动应答/////////////////////////////////
 	CDialog::OnTimer(nIDEvent);
 }
 
@@ -1401,6 +1415,9 @@ void CBeidouDlg::OnButtonMessage()
 	SetDlgItemText(IDC_BUTTON_SET,"配置");
 }
 
+extern int nCheckCount;//用于计算验证用户或密码(包括开始的1#和2#)的次数，最多三次
+extern int nFlag;//0表示其他，1表示正在用户名验证，2表示正在密码验证
+ 
 void CBeidouDlg::OnComm_WT() 
 {
 	// TODO: Add your control notification handler code here
@@ -1431,29 +1448,96 @@ void CBeidouDlg::OnComm_WT()
 			frame_receive_WT[frame_index_WT]=bt;
 			frame_index_WT++;			
 		}
+	
+	m_StatBar->SetText("有线电话：已连接",0,0);
 
 	if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='N'))//检测是否为DTMF信号
 	{
+
 		if(frame_receive_WT[3]!='#'){
 			CString tmp;
 			tmp.Format("%c",frame_receive_WT[3]);
 			send_string+=tmp;
 		}else{//把接收到的串传给自动应答函数
-			m_FKXX+="\r\n传号串:";
+			send_string+='#';//加上#号
+			m_FKXX+="传号:";
 			m_FKXX+=send_string;
 			m_FKXX+="\r\n";
+			UpdateData(FALSE);
+			//---------------1 S----------------------
+			int nAuto = 10;//随便定义了一个数
+			if (send_string == "1#")
+			{
+				//广播请求
+				SetTimer(33,AUTORESPONSE_TIME,NULL);//20s等待时间（等待用户输入，时间包括了播放语音的时间）
+				nAuto = bAutoResponse(PHONEID,send_string);
+			}
+			else if (send_string == "2#")
+			{
+				if (nFlag == 1 || nFlag == 2)
+				{
+					OtherCmdDeal(send_string);
+				}
+				else
+				{
+				//通话请求
+					PlaySound(".//Wav//RingConnect.wav", NULL, SND_FILENAME|SND_ASYNC);//通话正在连接中，请稍候 
+					SetTimer(34,NOPICKUP_TIME,NULL);//自定义振铃等待60s
+					//向电台人员通知来电   文件RingPlay.wav
+
+					//Q：这里用户需要怎么操作，
+					//这里OnButtonCall ，再添加一个状态标志，做虚拟摘机
+					WT_state=4;
+					GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("接听电话");
+				}
+			}
+			else//ID和PASSWORD等输入 
+			{				
+				SetTimer(33,AUTORESPONSE_TIME,NULL);//20s等待时间（等待用户输入，时间包括了播放语音的时间）
+				nAuto = bAutoResponse(PHONEID,send_string);
+			}
+
+			if(nAuto ==0)
+			{
+				Sleep(1000);
+				OnButtonCall();//挂机
+			}
+			else if(nAuto ==1)
+			{
+				//身份验证成功，和其他模块联系，准备广播
+			}
+			else if(nAuto ==2)
+			{
+				//继续进行操作
+				//此处应不需要做任何事
+			}
+			//-----------1 E-----------------
 			send_string="";
 			UpdateData(FALSE);
-		}
-		
+		}	
 	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='C')&&(frame_receive_WT[3]=='I')&&(frame_receive_WT[4]=='D'))//检测是否为来电提示
 	{
 		strDisp=frame_receive_WT+5;
 		call_in_number=strDisp;//开始拼接来电号码
 
+	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='Z'))//检测是否摘机成功
+	{
+		m_FKXX+="摘机成功";
+		m_FKXX+="\r\n";
+	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='D'))//检测是否拨号成功
+	{
+		m_FKXX+="拨号成功";
+		m_FKXX+="\r\n";
+	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='H'))//检测是否挂机成功
+	{
+		m_FKXX+="挂机成功";
+		m_FKXX+="\r\n";
+	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='B'))//检测是否传号成功
+	{
+		m_FKXX+="传号成功";
+		m_FKXX+="\r\n";
 	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='S')&&(frame_receive_WT[3]=='2'))//检测是否为挂机提示
 	{
-		m_FKXX+="\r\n";
 		m_FKXX+="对方挂机";
 		m_FKXX+="\r\n";
 		OnButtonCall();//对方挂机后，我也挂机，电话状态设置为空闲
@@ -1472,30 +1556,37 @@ void CBeidouDlg::OnComm_WT()
 		}
 
 		GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
-		flag_PW_busy=0;
-		WT_state=0;
+//		flag_PW_in_busy=0;//对方挂机，清零
+//		flag_PW_out_busy=0;//对方挂机，清零
+//		WT_state=0;
 
 	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='R')&&(frame_receive_WT[3]=='i')&&(frame_receive_WT[4]=='n')&&(frame_receive_WT[5]=='g'))//检测是否为来电提示音
 	{
-		m_FKXX+="Ring";
-		m_FKXX+="\t";
-		GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("接听电话");
+		m_FKXX+="Ring!  ";
+		GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
+//		GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("接听电话");
 		PlaySound(".//ring.wav", NULL, SND_FILENAME|SND_ASYNC);
-		flag_PW_busy=1;
+		flag_PW_in_busy=1;
 		send_string="";//传号字符串清空，准备接收传号
-		SetTimer(4,5000,NULL);//振铃5秒后未再次接收到振铃，认为是本机未摘机，而对方挂机
+		//----------自动应答：2 S-----------
+		OnButtonCall();//摘机，自动播放第一段语音
+		PlaySound(".//Wav//Guide.wav", NULL, SND_FILENAME|SND_ASYNC);//应急电台系统，自动广播请按1，原始通话请按2,#号结束
+		SetTimer(33,AUTORESPONSE_TIME,NULL);//20s等待时间（等待用户输入，时间包括了播放语音的时间）
+		//----------自动应答：2 E-----------
+//		SetTimer(4,5000,NULL);//(5S内接收到振铃信号则重置定时器)振铃5秒后未再次接收到振铃，认为是本机未摘机，而对方挂机
 
 	}else if (rxdata[0] >='0' && rxdata[0]<='9')//检测是否是电话号码
 	{
 		strDisp=frame_receive_WT;
 		call_in_number+=strDisp;
-		m_FKXX+="\r\n对方号码是：";
+		m_FKXX+="\r\n对方号码是:";
 		m_FKXX+=call_in_number;
-		m_FKXX+="\r\n";
 	} 
 	else
 	{
 	//	AfxMessageBox("下位机帧有错误！",MB_OK,0);
+		m_FKXX+=frame_receive_WT;
+		m_FKXX+="电话板帧有错误，检察电话线是否连接好\r\n";
 	}
 		UpdateData(FALSE);
 	}
@@ -1520,9 +1611,10 @@ void CBeidouDlg::OnOpencloseportWT()
 		{			
 			m_comm_WT.SetPortOpen(TRUE);//打开串口
 			GetDlgItem(IDC_OPENCLOSEPORT_WT)->SetWindowText("关闭串口");
+			m_StatBar->SetText("有线电话：已连接",0,0);
 			m_openoff_WT.SetIcon(m_hIconRed);
 
-			if(SerialPortOpenCloseFlag_WT)GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
+			GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
 		}
 		else
 			MessageBox("串口无法打开.");	 
@@ -1531,6 +1623,7 @@ void CBeidouDlg::OnOpencloseportWT()
 	{
 		SerialPortOpenCloseFlag_WT=FALSE;
 		GetDlgItem(IDC_OPENCLOSEPORT_WT)->SetWindowText("打开串口");
+		m_StatBar->SetText("有线电话：已断开",0,0);
 		m_openoff_WT.SetIcon(m_hIconOff);
 		m_comm_WT.SetPortOpen(FALSE);//关闭串口
 
@@ -1557,20 +1650,25 @@ void CBeidouDlg::OnButtonClearNum()
 	// TODO: Add your control notification handler code here
 	m_target_number="0";
 	UpdateData(FALSE);
-	GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
+	
+	if((flag_PW_in_busy==1)||(flag_PW_out_busy==1)){//通信中，按钮始终使能
+		GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
+	}else{//空闲中
+		GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
+	}	
 	GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(FALSE);
-	GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
 }
 
 void CBeidouDlg::OnButtonCall() 
 {
 	// TODO: Add your control notification handler code here
-		if((flag_PW_busy==0)&&(m_target_number=="0")){
+		if((flag_PW_out_busy==0)&&(flag_PW_in_busy==0)&&(m_target_number=="0")){//只有拨打电话时(全部空闲)，才检测是否有号码输入
 			AfxMessageBox("请先输入对方号码");
 			return;
 		}
 
 		if(WT_state==0){//摘机
+			
 			char lpOutBuffer[] = {'A','T','Z','\r','\n'};//接着上传ATH指令进行挂机
 			CByteArray Array;
 			Array.RemoveAll();
@@ -1584,15 +1682,18 @@ void CBeidouDlg::OnButtonCall()
 			{
 				m_comm_WT.SetOutput(COleVariant(Array));//发送数据
 			}
-			if (flag_PW_busy==1)//接电话
+			if (flag_PW_in_busy==1)//接听电话
 			{
+//				KillTimer(4);//关闭定时器4。已经接听了，就不需要监测振铃了
 				WT_state=3;//该挂机啦
 				GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
 			} 
-			else//打电话
+			else//向外打电话
 			{
+				flag_PW_out_busy=1;//主动拨打电话
 				GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("正在拨号...");
-				SetTimer(3,100,NULL);//500ms后再调用本函数进行拨号，使摘机动作对用户透明，先操作一次摘机再调用一次，用于拨号
+				GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(FALSE);//拨打电话时，关闭退格按钮
+				SetTimer(3,100,NULL);//100ms后再调用本函数进行拨号，使摘机动作对用户透明，先操作一次摘机再调用一次，用于拨号
 				WT_state=2;//该拨号啦
 			}
 			
@@ -1613,8 +1714,10 @@ void CBeidouDlg::OnButtonCall()
 				m_comm_WT.SetOutput(COleVariant(Array));//发送数据
 			}
 			GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
+			GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(TRUE);//挂机时，打开退格按钮
 			WT_state=0;//挂机，空闲中
-			flag_PW_busy=0;
+			flag_PW_out_busy=0;//主动挂机，清零
+			flag_PW_in_busy=0;//主动挂机，清零
 		} 
 		else if(WT_state==2)//拨号
 		{
@@ -1643,12 +1746,23 @@ void CBeidouDlg::OnButtonCall()
 			}
 			GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
 			WT_state=3;//通话中
-		}//end of WT_state
+		}
+		//------------------自动应答：4 S---------------------
+		else if(WT_state==4)//虚拟摘机
+		{
+			KillTimer(34);
+			//开mic
+			//正式开始普通电话通话
+	//		ShellExecute(NULL,"open","record.exe",NULL,NULL,SW_SHOWNORMAL);	//启动录音
+			GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
+			WT_state=3;//通话中
+		}
+		//-------------------自动应答：4 E--------------------
+		//end of WT_state
 	 
 
 
 }
-//flag_PW_busy=0;
 
 void CBeidouDlg::OnChangeEditTargetnum() 
 {
@@ -1704,28 +1818,29 @@ void CBeidouDlg::OnButton2()
 
 void CBeidouDlg::chuanhao(char num)
 {
-	
-	char lpOutBuffer[] = {'A','T','B','0','\r','\n'};//接着上传ATH指令进行挂机
-	lpOutBuffer[3]=num;
-	CByteArray Array;
-	Array.RemoveAll();
-	Array.SetSize(5);		
-	
-	if (m_target_number=="0")
+	if (m_target_number=="0")//把零移除
 	{
 		m_target_number=m_target_number.Left(m_target_number.GetLength()-1);
 	}
-
-	for (int i=0; i<5; i++)
-	{
-		Array.SetAt(i,lpOutBuffer[i]);
-	}
-	if(m_comm_WT.GetPortOpen())
-	{
-		m_comm_WT.SetOutput(COleVariant(Array));//发送数据
-	}
 	if(SerialPortOpenCloseFlag_WT)GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
-	GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(TRUE);
+
+	if((flag_PW_in_busy==1)||(flag_PW_out_busy==1)){//呼入或呼出后，才传号
+		char lpOutBuffer[] = {'A','T','B','0','\r','\n'};//接着上传ATH指令进行挂机
+		lpOutBuffer[3]=num;
+		CByteArray Array;
+		Array.RemoveAll();
+		Array.SetSize(6);		
+
+		for (int i=0; i<6; i++)
+		{
+			Array.SetAt(i,lpOutBuffer[i]);
+		}
+		if(m_comm_WT.GetPortOpen())
+		{
+			m_comm_WT.SetOutput(COleVariant(Array));//发送数据
+		}
+		if(flag_PW_out_busy==0)GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(TRUE);//主动呼出时，失能退格按钮
+	}
 }
 
 void CBeidouDlg::OnButton3() 
@@ -1847,14 +1962,20 @@ void CBeidouDlg::OnButtonJing()
 void CBeidouDlg::OnButtonBack() 
 {
 	// TODO: Add your control notification handler code here
-		m_target_number=m_target_number.Left(m_target_number.GetLength()-1);
-		if (m_target_number.GetLength()==0)
-		{
-			m_target_number+="0";
-			GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
-			GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(FALSE);
+	if(flag_PW_out_busy==1){//拨出电话时，退格键对传号而言起不到任何作用，此时直接返回
+		return;
 	}
-		UpdateData(FALSE);
+	
+	m_target_number=m_target_number.Left(m_target_number.GetLength()-1);
+	if (m_target_number.GetLength()==0)
+	{
+		m_target_number+="0";
+		if((flag_PW_in_busy==0)&&(flag_PW_out_busy==0)){
+			GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
+		}
+		GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(FALSE);
+	}
+	UpdateData(FALSE);
 
 }
 
@@ -2190,11 +2311,21 @@ void CBeidouDlg::OnModuleReset()
 	{
 		modulereset=TRUE;
 		GetDlgItem(IDC_MODULE_RESET)->SetWindowText("取消复位");
+		
+		GetDlgItem(IDC_BUTTON_1)->SetWindowText("有线电话");
+		GetDlgItem(IDC_BUTTON_2)->SetWindowText("卫星电话");
+		GetDlgItem(IDC_BUTTON_3)->SetWindowText("3G");
+		GetDlgItem(IDC_BUTTON_4)->SetWindowText("北斗");
 	} 
 	else
 	{
 		modulereset=FALSE;
 		GetDlgItem(IDC_MODULE_RESET)->SetWindowText("手动复位");
+
+		GetDlgItem(IDC_BUTTON_1)->SetWindowText("1");
+		GetDlgItem(IDC_BUTTON_2)->SetWindowText("2");
+		GetDlgItem(IDC_BUTTON_3)->SetWindowText("3");
+		GetDlgItem(IDC_BUTTON_4)->SetWindowText("4");
 	}
 }
 
@@ -2257,4 +2388,12 @@ void CBeidouDlg::OnSoundSwitch()
 		soundswitch=FALSE;
 		GetDlgItem(IDC_SOUND_SWITCH)->SetWindowText("音频切换");
 	}
+}
+
+void CBeidouDlg::OnButtonClearmsg() 
+{
+	// TODO: Add your control notification handler code here
+	m_FKXX="";
+	UpdateData(FALSE);
+
 }
