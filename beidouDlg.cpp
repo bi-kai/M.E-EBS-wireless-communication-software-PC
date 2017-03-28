@@ -5,6 +5,9 @@
 #include "beidou.h"
 #include "beidouDlg.h"
 #include <math.h> 
+#include <windows.h>
+#include <mmsystem.h>
+#pragma comment(lib,"WINMM.LIB")
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -99,18 +102,21 @@ CBeidouDlg::CBeidouDlg(CWnd* pParent /*=NULL*/)
 	m_basestate = _T("");
 	m_FKXX = _T("");
 	m_otherID = 0;
+	m_target_number = _T("");
 	//}}AFX_DATA_INIT
 	// Note that LoadIcon does not require a subsequent DestroyIcon in Win32
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 
 	SerialPortOpenCloseFlag=FALSE;//默认关闭串口
+	SerialPortOpenCloseFlag_WT=FALSE;//默认关闭有线电话的串口
 }
 
 void CBeidouDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
 	//{{AFX_DATA_MAP(CBeidouDlg)
-//	DDX_Control(pDX, IDC_TAB1, m_tab);
+	DDX_Control(pDX, IDC_STATIC_OPENOFF_WT, m_openoff_WT);
+	DDX_Control(pDX, IDC_COMBO_COMSELECT_WT, m_com_WT);
 	DDX_Control(pDX, IDC_PROGRESS_TIMER, m_timer);
 	DDX_Control(pDX, IDC_PROGRESS3, m_sata3);
 	DDX_Control(pDX, IDC_PROGRESS2, m_sata2);
@@ -132,6 +138,8 @@ void CBeidouDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT_FKXX, m_FKXX);
 	DDX_Text(pDX, IDC_EDIT5, m_otherID);
 	DDV_MinMaxInt(pDX, m_otherID, 0, 16777215);
+	DDX_Text(pDX, IDC_EDIT_TARGETNUM, m_target_number);
+	DDX_Control(pDX, IDC_MSCOMM_WT, m_comm_WT);
 	//}}AFX_DATA_MAP
 }
 
@@ -156,6 +164,8 @@ BEGIN_MESSAGE_MAP(CBeidouDlg, CDialog)
 	ON_BN_CLICKED(IDC_BUTTON_SET, OnButtonSet)
 	ON_BN_CLICKED(IDC_BUTTON_PHONE, OnButtonPhone)
 	ON_BN_CLICKED(IDC_BUTTON_MESSAGE, OnButtonMessage)
+	ON_BN_CLICKED(IDC_OPENCLOSEPORT_WT, OnOpencloseportWT)
+	ON_CBN_SELENDOK(IDC_COMBO_COMSELECT_WT, OnSelendokComboComselectWT)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -196,6 +206,8 @@ BOOL CBeidouDlg::OnInitDialog()
 	m_DDatabits=8;
 	m_DBaud=115200;
 
+	m_DCom_WT=2;
+
 	m_hIconRed  = AfxGetApp()->LoadIcon(IDI_ICON_RED);
 	m_hIconOff	= AfxGetApp()->LoadIcon(IDI_ICON_OFF);
 	GetDlgItem(IDC_COMBO_COMSELECT)->SetWindowText(_T("COM1"));
@@ -210,8 +222,10 @@ BOOL CBeidouDlg::OnInitDialog()
 	GetDlgItem(IDC_BUTTON3_POWERCHECK)->EnableWindow(FALSE);
 	GetDlgItem(IDC_BUTTON_SEND)->EnableWindow(FALSE);
 	GetDlgItem(IDC_BUTTON_CLEAR)->EnableWindow(FALSE);
+
+	GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
 	UpdateData(FALSE);
-	
+/********************1、北斗串口配置***********************************/	
 	m_comm.SetCommPort(1); //选择com1
 	m_comm.SetInputMode(1); //输入方式为二进制方式
 	m_comm.SetInBufferSize(10240); //设置输入缓冲区大小
@@ -225,8 +239,23 @@ BOOL CBeidouDlg::OnInitDialog()
 		//		m_comm.SetPortOpen(TRUE);//打开串口(此处不必打开，后边用“打开串口”按钮实现)
 	}
 	else
-		 MessageBox("can not open serial port");
-
+		 MessageBox("串口无法打开！");
+/********************2、北斗串口配置***********************************/	
+	m_comm_WT.SetCommPort(2); //选择com2
+	m_comm_WT.SetInputMode(1); //输入方式为二进制方式
+	m_comm_WT.SetInBufferSize(10240); //设置输入缓冲区大小
+	m_comm_WT.SetOutBufferSize(1024); //设置输出缓冲区大小
+	m_comm_WT.SetSettings("1200,n,8,1"); //波特率1200，无校验，8个数据位，1个停止位	 
+	m_comm_WT.SetRThreshold(1); //参数1表示每当串口接收缓冲区中有多于或等于1个字符时将引发一个接收数据的OnComm事件
+	m_comm_WT.SetInputLen(0); //设置当前接收区数据长度为0
+	//	 m_comm_WT.GetInput();    //先预读缓冲区以清除残留数据
+	if(!m_comm_WT.GetPortOpen())
+	{		 
+		//		m_comm_WT.SetPortOpen(TRUE);//打开串口(此处不必打开，后边用“打开串口”按钮实现)
+	}
+	else
+		 MessageBox("串口无法打开！");
+/**********************************************************************/
 	frame_lock=0;//缓冲帧使用锁，0：允许用；1：禁止使用
 	for(int j=0;j<received_frame_size;j++){
 		frame_flag[j]=0;//没有帧等待处理
@@ -254,7 +283,7 @@ BOOL CBeidouDlg::OnInitDialog()
 	GetDlgItem(IDC_STATIC_PHONE)->GetWindowRect(&rectSeparator);
 	rectSmall.left=rectSeparator.left;
 	rectSmall.top=rectLarge.top;
-	rectSmall.right=rectSeparator.right+30;
+	rectSmall.right=rectSeparator.right+27;
 	rectSmall.bottom=rectLarge.bottom;
 	SetWindowPos(NULL,0,0,rectSmall.Width(),rectSmall.Height(),SWP_NOMOVE|SWP_NOZORDER);
 	
@@ -324,6 +353,7 @@ HCURSOR CBeidouDlg::OnQueryDragIcon()
 BEGIN_EVENTSINK_MAP(CBeidouDlg, CDialog)
     //{{AFX_EVENTSINK_MAP(CBeidouDlg)
 	ON_EVENT(CBeidouDlg, IDC_MSCOMM1, 1 /* OnComm */, OnComm1, VTS_NONE)
+	ON_EVENT(CBeidouDlg, IDC_MSCOMM_WT, 1 /* OnComm */, OnComm_WT, VTS_NONE)
 	//}}AFX_EVENTSINK_MAP
 END_EVENTSINK_MAP()
 
@@ -455,7 +485,7 @@ void CBeidouDlg::OnOpencloseport()
 
 		//以下是串口的初始化配置
 		if(m_comm.GetPortOpen())//打开端口前的检测，先关，再开
-			MessageBox("can not open serial port");
+			MessageBox("串口无法打开");
 //			m_comm.SetPortOpen(FALSE);	//	
 		m_comm.SetCommPort(m_DCom); //选择端口，默认是com1
 		m_comm.SetSettings((LPSTR)(LPCTSTR)string1); //波特率9600，无校验，8个数据位，1个停止位
@@ -1140,4 +1170,197 @@ void CBeidouDlg::OnButtonMessage()
 	// TODO: Add your control notification handler code here
 	switch_state=1;//发短信
 	SetWindowPos(NULL,0,0,rectMiddle.Width(),rectMiddle.Height(),SWP_NOMOVE|SWP_NOZORDER);
+	SetDlgItemText(IDC_BUTTON_SET,"配置");
+}
+
+void CBeidouDlg::OnComm_WT() 
+{
+	// TODO: Add your control notification handler code here
+// 	VARIANT variant_inp;
+// 	COleSafeArray safearray_inp;
+// 	LONG len,k;
+// 	BYTE rxdata[2048]; //设置BYTE数组
+// 	CString strDisp="",strTmp="";
+// 	int frequency_point=0;//频率扫描的总的频点数
+// 	double frequency_buf=0;//频点计算
+// 	
+// 	if((m_comm.GetCommEvent()==2)) //事件值为2表示接收缓冲区内有字符
+// 	{
+// 		variant_inp=m_comm.GetInput(); //读缓冲区
+// 		safearray_inp=variant_inp;  //VARIANT型变量转换为ColeSafeArray型变量
+// 		len=safearray_inp.GetOneDimSize(); //得到有效数据长度
+// 		for(k=0;k<len;k++)
+// 		{
+// 			safearray_inp.GetElement(&k,rxdata+k);//转换为BYTE型数组
+// 		}
+// 		frame_index=0;
+// 		for(k=0;k<len;k++)//将数组转化为CString类型
+// 		{
+// 			BYTE bt=*(char*)(rxdata+k);    //字符型
+// 				if (rxdata[0]!='$')
+// 				{
+// 					return;//帧数据串错误
+// 				}
+// 			frame_receive[frame_index]=bt;
+// 			frame_index++;			
+// 		}
+// //		AfxMessageBox(strDisp,MB_OK,0);
+// 
+// 	if (((flag_com_init_ack==0)||(timer_board_disconnect_times!=0))&&(frame_receive[1]=='r')&&(frame_receive[2]=='d')&&(frame_receive[3]=='y')&&(frame_receive[4]=='_')
+// 		&&(frame_receive[5]=='_')&&(frame_receive[6]==index_wakeup_times)&&(frame_receive[9]==XOR(frame_receive,9)))//首次连接握手，上位机软件接收时，不用避免$,\r,\n
+// 	{
+// 		flag_com_init_ack=1;
+// 		m_board_led.SetIcon(m_hIconRed);
+// 		GetDlgItem(IDC_STATIC_BOARDCONNECT)->SetWindowText("板卡已连接!"); 
+// 		GetDlgItem(IDC_BUTTON_WAKEUP)->EnableWindow(TRUE);
+// 		GetDlgItem(IDC_BUTTON_VOICE)->EnableWindow(TRUE);
+// 		GetDlgItem(IDC_BUTTON_SCAN)->EnableWindow(TRUE);
+// 		GetDlgItem(IDC_COMBO_ALARM_TYPE)->EnableWindow(TRUE);
+// 		GetDlgItem(IDC_BUTTON_IDENTIFY)->EnableWindow(TRUE);
+// 		GetDlgItem(IDC_SLIDER_POWER)->EnableWindow(TRUE);
+// 		timer_board_disconnect_times=0;//收到反馈则清零
+// 		m_frequency_native=FREQUENCY_TERMINAL_START+(double)frame_receive[7]/10;
+// 		CString strTemp;
+// 		strTemp.Format(_T("%.1f"),m_frequency_native);
+// 		::WritePrivateProfileString("ConfigInfo","frequency_native",strTemp,".\\config_radiostation.ini");
+// 
+// 		strTemp.Format(_T("%.1f"),frame_receive[8]);
+// 		::WritePrivateProfileString("ConfigInfo","POWER_SELECT",strTemp,".\\config_radiostation.ini");
+// 		
+// 		m_POWER_SELECT.SetPos(frame_receive[8]);
+// 		m_power_num.Format("%d",frame_receive[8]);
+// 		UpdateData(FALSE);
+// 		
+// 	}else if ((flag_com_init_ack==1)&&(frame_receive[1]=='f')&&(frame_receive[2]=='r')&&(frame_receive[3]=='e')&&(frame_receive[4]=='_')
+// 		&&(frame_receive[5]=='_')&&(frame_receive[6]==index_scan_times)&&(frame_receive[10]==XOR(frame_receive,10)))//频谱扫描
+// 	{
+// 		frequency_buf=76.0+(double)frame_receive[7]/10;
+// 		strTmp.Format("%.1f",frequency_buf);
+// 		m_rssi_list.InsertItem(frame_receive[7],strTmp);//插入行
+// 		strTmp.Format("%d",frame_receive[8]);
+// 		m_rssi_list.SetItemText(frame_receive[7],1,strTmp);//设置数据
+// 		strTmp.Format("%d",frame_receive[9]);
+// 		m_rssi_list.SetItemText(frame_receive[7],2,strTmp);//设置数据
+// 		m_rssi_list.SendMessage(WM_VSCROLL,SB_BOTTOM,NULL); //随数据滚动
+// 		m_StatBar->SetText("软件及板卡状态：数据接收...",1,0);
+// 
+// 	}else if ((flag_com_init_ack==1)&&(frame_receive[1]=='c')&&(frame_receive[2]=='o')&&(frame_receive[3]=='n')&&(frame_receive[4]=='_')
+// 		&&(frame_receive[5]=='_')&&(frame_receive[6]==index_control_times)&&(frame_receive[8]==XOR(frame_receive,8)))//控制帧
+// 	{
+// 		if (frame_receive[7]==2)
+// 		{
+// 			AfxMessageBox("下位机频点配置成功！",MB_OK,0);
+// 		} 
+// 		else if (frame_receive[7]==3)
+// 		{
+// 			AfxMessageBox("开始广播",MB_OK,0);
+// 		}else if (frame_receive[7]==4)
+// 		{
+// 			AfxMessageBox("停止广播",MB_OK,0);
+// 		}
+// 		
+// 
+// 
+// 	}else if ((flag_com_init_ack==1)&&(frame_receive[1]=='d')&&(frame_receive[2]=='a')&&(frame_receive[3]=='t')&&(frame_receive[4]=='_')
+// 		&&(frame_receive[5]=='_')&&(frame_receive[6]==index_data_times)&&(frame_receive[7]==XOR(frame_receive,7)))//数据帧反馈信息
+// 	{
+// 		switch (index_resent_data_frame)
+// 		{
+// 		case 1://广播唤醒帧 
+// 			m_StatBar->SetText("软件及板卡状态：广播帧已发送",1,0);
+// //			m_frame_send_state.SetIcon(m_hIconRed);
+// 			break;
+// 		case 2://单播唤醒帧
+// 			m_StatBar->SetText("软件及板卡状态：单播帧已发送",1,0);
+// //			m_frame_send_state.SetIcon(m_hIconRed);
+// 			break;
+// 		case 3://组播唤醒帧
+// 			m_StatBar->SetText("软件及板卡状态：组播帧已发送",1,0);
+// //			m_frame_send_state.SetIcon(m_hIconRed);
+// 			break;
+// 		case 4://控制指令帧
+// 			m_StatBar->SetText("软件及板卡状态：控制帧已发送",1,0);
+// //			m_frame_send_state.SetIcon(m_hIconRed);
+// 			break;
+// 		case 5://认证帧
+// 			m_StatBar->SetText("软件及板卡状态：认证帧已发送",1,0);
+// //			m_frame_send_state.SetIcon(m_hIconRed);
+// 			break;
+// 		}
+// 		
+// 
+// 	}else if ((flag_com_init_ack==1)&&(frame_receive[1]=='r')&&(frame_receive[2]=='s')&&(frame_receive[3]=='t')&&(frame_receive[4]=='_')
+// 		&&(frame_receive[5]=='_')&&(frame_receive[6]==0)&&(frame_receive[7]==0)&&(frame_receive[8]==XOR(frame_receive,8)))//重传帧
+// 	{
+// 	//	AfxMessageBox("wakaka",MB_OK,0);
+// 		switch (index_resent_data_frame)
+// 		{
+// 		case 1://广播唤醒帧
+// 			OnButtonWakeup(); 
+// 			break;
+// 		case 2://单播唤醒帧
+// 			OnButtonWakeup(); 
+// 			break;
+// 		case 3://组播唤醒帧
+// 			OnButtonWakeup(); 
+// 			break;
+// 		case 4://控制指令帧
+// 			terminal_control_index=0;
+// 			OnButtonAlarm();
+// 			break;
+// 		case 5://认证帧
+// 			break;
+// 		}
+// 		m_StatBar->SetText("软件及板卡状态：子板请求重传",1,0);
+// 	} 
+// 	else
+// 	{
+// 	//	AfxMessageBox("下位机帧有错误！",MB_OK,0);
+// 	}
+// 		UpdateData(FALSE);
+// 	}
+}
+
+void CBeidouDlg::OnOpencloseportWT() 
+{
+	// TODO: Add your control notification handler code here
+	CString string1="9600,n,8,1";
+
+	if(SerialPortOpenCloseFlag_WT==FALSE)
+	{
+		SerialPortOpenCloseFlag_WT=TRUE;
+
+		//以下是串口的初始化配置
+		if(m_comm_WT.GetPortOpen())//打开端口前的检测，先关，再开
+			MessageBox("串口无法打开");
+//			m_comm.SetPortOpen(FALSE);	//	
+		m_comm_WT.SetCommPort(m_DCom_WT); //选择端口，默认是com2
+		m_comm_WT.SetSettings((LPSTR)(LPCTSTR)string1); //波特率1200，无校验，8个数据位，1个停止位
+		if(!m_comm_WT.GetPortOpen())
+		{			
+			m_comm_WT.SetPortOpen(TRUE);//打开串口
+			GetDlgItem(IDC_OPENCLOSEPORT_WT)->SetWindowText("关闭串口");
+			m_openoff_WT.SetIcon(m_hIconRed);
+
+			GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
+		}
+		else
+			MessageBox("串口无法打开.");	 
+	}
+	else
+	{
+		SerialPortOpenCloseFlag_WT=FALSE;
+		GetDlgItem(IDC_OPENCLOSEPORT_WT)->SetWindowText("打开串口");
+		m_openoff_WT.SetIcon(m_hIconOff);
+		m_comm_WT.SetPortOpen(FALSE);//关闭串口
+
+		GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
+	}
+}
+
+void CBeidouDlg::OnSelendokComboComselectWT() 
+{
+	// TODO: Add your control notification handler code here
+	m_DCom_WT=m_com_WT.GetCurSel()+1;
+	UpdateData();	
 }

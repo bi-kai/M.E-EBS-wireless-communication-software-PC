@@ -36,11 +36,14 @@ public:
 	CRect rectSeparator;
 
 	int switch_state;//切换状态标志位，0：打电话；1：发短信；
+//	int state_phone[3];//打电话功能模块可用状态标志。[0]：有线电话可用状态标志0：不可用，1：可用；[1]：3G电话状态；[2]：卫星电话状态；
+//	int state_message[2];//[0]：3G短信状态；[1]：北斗短信状态；
 
 // Dialog Data
 	//{{AFX_DATA(CBeidouDlg)
 	enum { IDD = IDD_BEIDOU_DIALOG };
-//	CTabCtrl	m_tab;
+	CStatic	m_openoff_WT;
+	CComboBox	m_com_WT;
 	CProgressCtrl	m_timer;
 	CProgressCtrl	m_sata3;
 	CProgressCtrl	m_sata2;
@@ -60,6 +63,8 @@ public:
 	CString	m_basestate;
 	CString	m_FKXX;
 	int		m_otherID;
+	CString	m_target_number;
+	CMSComm	m_comm_WT;
 	//}}AFX_DATA
 
 	// ClassWizard generated virtual function overrides
@@ -76,14 +81,20 @@ private:
 	int m_DDatabits;
 	LONG m_DBaud;
 
-	BOOL SerialPortOpenCloseFlag;//串口打开关闭标志位
+	int m_DCom_WT;
+
+	BOOL SerialPortOpenCloseFlag;//北斗串口打开关闭标志位
+	BOOL SerialPortOpenCloseFlag_WT;//有线电话串口打开关闭标志位
 	BOOL frame_lock;
 	unsigned int frame_len[5];//各个缓冲帧的长度
 	int frame_index;//帧的索引
 	bool frame_flag[5];//帧准等待处理标志位
 	unsigned int framelen;//帧长计数器
 	bool comm_init;//串口初次初始化标志位
-
+	
+/***************有线电话**************************/
+	CTime WT_Time;		//CTime变量,获取当前时间
+	CString WT_str_show;
 
 protected:
 	HICON m_hIcon;
@@ -111,6 +122,9 @@ protected:
 	afx_msg void OnButtonSet();
 	afx_msg void OnButtonPhone();
 	afx_msg void OnButtonMessage();
+	afx_msg void OnComm_WT();
+	afx_msg void OnOpencloseportWT();
+	afx_msg void OnSelendokComboComselectWT();
 	DECLARE_EVENTSINK_MAP()
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
