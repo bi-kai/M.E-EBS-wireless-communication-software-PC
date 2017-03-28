@@ -1336,7 +1336,7 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 		flag_PW_busy=0;//标志挂断状态
 		KillTimer(4);
 	}
-	
+	//////////////////////以上用于有线电话/////////////////////////////////
 	CDialog::OnTimer(nIDEvent);
 }
 
@@ -1767,7 +1767,7 @@ void CBeidouDlg::OnButton4()
 void CBeidouDlg::OnButton5() 
 {
 	// TODO: Add your control notification handler code here
-	if((modulereset==FALSE)||(modulereset==FALSE)){
+	if((modulereset==FALSE)&&(soundswitch==FALSE)){
 		chuanhao('5');
 		m_target_number+="5";
 		UpdateData(FALSE);
@@ -1777,7 +1777,7 @@ void CBeidouDlg::OnButton5()
 void CBeidouDlg::OnButton6() 
 {
 	// TODO: Add your control notification handler code here
-	if((modulereset==FALSE)||(modulereset==FALSE)){
+	if((modulereset==FALSE)&&(soundswitch==FALSE)){
 	chuanhao('6');
 	m_target_number+="6";
 	UpdateData(FALSE);
@@ -1787,7 +1787,7 @@ void CBeidouDlg::OnButton6()
 void CBeidouDlg::OnButton8() //对应数字7键，写反了
 {
 	// TODO: Add your control notification handler code here
-	if((modulereset==FALSE)||(modulereset==FALSE)){
+	if((modulereset==FALSE)&&(soundswitch==FALSE)){
 	chuanhao('7');
 	m_target_number+="7";
 	UpdateData(FALSE);
@@ -1797,7 +1797,7 @@ void CBeidouDlg::OnButton8() //对应数字7键，写反了
 void CBeidouDlg::OnButton7() //对应数字8键，写反了
 {
 	// TODO: Add your control notification handler code here
-	if((modulereset==FALSE)||(modulereset==FALSE)){
+	if((modulereset==FALSE)&&(soundswitch==FALSE)){
 	chuanhao('8');
 	m_target_number+="8";
 	UpdateData(FALSE);
@@ -1807,7 +1807,7 @@ void CBeidouDlg::OnButton7() //对应数字8键，写反了
 void CBeidouDlg::OnButton9() 
 {
 	// TODO: Add your control notification handler code here
-	if((modulereset==FALSE)||(modulereset==FALSE)){
+	if((modulereset==FALSE)&&(soundswitch==FALSE)){
 	chuanhao('9');
 	m_target_number+="9";
 	UpdateData(FALSE);
@@ -1817,7 +1817,7 @@ void CBeidouDlg::OnButton9()
 void CBeidouDlg::OnButton10() 
 {
 	// TODO: Add your control notification handler code here
-	if((modulereset==FALSE)||(modulereset==FALSE)){
+	if((modulereset==FALSE)&&(soundswitch==FALSE)){
 	chuanhao('0');
 	m_target_number+="0";
 	UpdateData(FALSE);
@@ -1827,7 +1827,7 @@ void CBeidouDlg::OnButton10()
 void CBeidouDlg::OnButtonXing() 
 {
 	// TODO: Add your control notification handler code here
-	if((modulereset==FALSE)||(modulereset==FALSE)){
+	if((modulereset==FALSE)&&(soundswitch==FALSE)){
 	chuanhao('*');
 	m_target_number+="*";
 	UpdateData(FALSE);
@@ -1837,7 +1837,7 @@ void CBeidouDlg::OnButtonXing()
 void CBeidouDlg::OnButtonJing() 
 {
 	// TODO: Add your control notification handler code here
-	if((modulereset==FALSE)||(modulereset==FALSE)){
+	if((modulereset==FALSE)&&(soundswitch==FALSE)){
 	chuanhao('#');
 	m_target_number+="#";
 	UpdateData(FALSE);
