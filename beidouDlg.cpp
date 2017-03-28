@@ -201,6 +201,8 @@ BEGIN_MESSAGE_MAP(CBeidouDlg, CDialog)
 	ON_EN_CHANGE(IDC_EDIT_FKXX, OnChangeEditFkxx)
 	ON_BN_CLICKED(IDC_BUTTON_CONNECTYUNWEI, OnButtonConnect_YW)
 	ON_CBN_SELENDOK(IDC_COMBO_COMSELECT_YW, OnSelendokComboComselectYw)
+	ON_BN_CLICKED(IDC_MODULE_RESET, OnModuleReset)
+	ON_BN_CLICKED(IDC_SOUND_SWITCH, OnSoundSwitch)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -244,6 +246,8 @@ BOOL CBeidouDlg::OnInitDialog()
 	m_DCom_WT=2;
 	index_wakeup_times=0;
 	SerialPortOpenCloseFlag_YW=0;
+	modulereset=FALSE;
+	soundswitch=FALSE;
 
 	m_hIconRed  = AfxGetApp()->LoadIcon(IDI_ICON_RED);
 	m_hIconOff	= AfxGetApp()->LoadIcon(IDI_ICON_OFF);
@@ -293,7 +297,7 @@ BOOL CBeidouDlg::OnInitDialog()
 	m_comm_WT.SetInBufferSize(1024); //设置输入缓冲区大小
 	m_comm_WT.SetOutBufferSize(10240); //设置输出缓冲区大小
 	m_comm_WT.SetSettings("1200,n,8,1"); //波特率1200，无校验，8个数据位，1个停止位	 
-	m_comm_WT.SetRThreshold(8); //参数1表示每当串口接收缓冲区中有多于或等于1个字符时将引发一个接收数据的OnComm事件
+	m_comm_WT.SetRThreshold(7); //参数1表示每当串口接收缓冲区中有多于或等于1个字符时将引发一个接收数据的OnComm事件
 	m_comm_WT.SetInputLen(0); //设置当前接收区数据长度为0
 	//	 m_comm_WT.GetInput();    //先预读缓冲区以清除残留数据
 /********************3、运维串口配置***********************************/	
@@ -302,7 +306,7 @@ BOOL CBeidouDlg::OnInitDialog()
 	m_comm_YW.SetInBufferSize(1024); //设置输入缓冲区大小
 	m_comm_YW.SetOutBufferSize(10240); //设置输出缓冲区大小
 	m_comm_YW.SetSettings("115200,n,8,1"); //波特率1200，无校验，8个数据位，1个停止位	 
-	m_comm_YW.SetRThreshold(8); //参数1表示每当串口接收缓冲区中有多于或等于1个字符时将引发一个接收数据的OnComm事件
+	m_comm_YW.SetRThreshold(7); //参数1表示每当串口接收缓冲区中有多于或等于1个字符时将引发一个接收数据的OnComm事件
 	m_comm_YW.SetInputLen(0); //设置当前接收区数据长度为0
 	//	 m_comm_WT.GetInput();    //先预读缓冲区以清除残留数据
 /**********************************************************************/
@@ -1665,17 +1669,37 @@ void CBeidouDlg::OnChangeEditTargetnum()
 void CBeidouDlg::OnButton1() 
 {
 	// TODO: Add your control notification handler code here
-	chuanhao('1');
-	m_target_number+="1";
-	UpdateData(FALSE);
+	if(modulereset==TRUE) 
+	{
+		module_reset(1);//复位模块 1：有线电话；2：卫星电话；3：3G模块；4：北斗模块；5：广播板；6：其他；
+	}
+	else if (soundswitch==TRUE)
+	{
+		sound_switch(1);
+	}
+	else{
+		chuanhao('1');
+		m_target_number+="1";
+		UpdateData(FALSE);
+	}
 }
 
 void CBeidouDlg::OnButton2() 
 {
 	// TODO: Add your control notification handler code here
-	chuanhao('2');
-	m_target_number+="2";
-	UpdateData(FALSE);
+	if(modulereset==TRUE) 
+	{
+		module_reset(2);//复位模块 1：有线电话；2：卫星电话；3：3G模块；4：北斗模块；5：广播板；6：其他；
+	}
+	else if (soundswitch==TRUE)
+	{
+		sound_switch(2);
+	}
+	else{
+		chuanhao('2');
+		m_target_number+="2";
+		UpdateData(FALSE);
+	}
 }
 
 void CBeidouDlg::chuanhao(char num)
@@ -1707,81 +1731,117 @@ void CBeidouDlg::chuanhao(char num)
 void CBeidouDlg::OnButton3() 
 {
 	// TODO: Add your control notification handler code here
-	chuanhao('3');
-	m_target_number+="3";
-	UpdateData(FALSE);
+	if(modulereset==TRUE) 
+	{
+		module_reset(3);//复位模块 1：有线电话；2：卫星电话；3：3G模块；4：北斗模块；5：广播板；6：其他；
+	}
+	else if (soundswitch==TRUE)
+	{
+		sound_switch(3);
+	}
+	else{
+		chuanhao('3');
+		m_target_number+="3";
+		UpdateData(FALSE);
+	}
 }
 
 void CBeidouDlg::OnButton4() 
 {
 	// TODO: Add your control notification handler code here
-	chuanhao('4');
-	m_target_number+="4";
-	UpdateData(FALSE);
+	if(modulereset==TRUE) 
+	{
+		module_reset(4);//复位模块 1：有线电话；2：卫星电话；3：3G模块；4：北斗模块；5：广播板；6：其他；
+	}
+	else if (soundswitch==TRUE)
+	{
+		sound_switch(4);
+	}
+	else{
+		chuanhao('4');
+		m_target_number+="4";
+		UpdateData(FALSE);
+	}
 }
 
 void CBeidouDlg::OnButton5() 
 {
 	// TODO: Add your control notification handler code here
-	chuanhao('5');
-	m_target_number+="5";
-	UpdateData(FALSE);
+	if((modulereset==FALSE)||(modulereset==FALSE)){
+		chuanhao('5');
+		m_target_number+="5";
+		UpdateData(FALSE);
+	}
 }
 
 void CBeidouDlg::OnButton6() 
 {
 	// TODO: Add your control notification handler code here
+	if((modulereset==FALSE)||(modulereset==FALSE)){
 	chuanhao('6');
 	m_target_number+="6";
 	UpdateData(FALSE);
+	}
 }
 
-void CBeidouDlg::OnButton8() 
+void CBeidouDlg::OnButton8() //对应数字7键，写反了
 {
 	// TODO: Add your control notification handler code here
+	if((modulereset==FALSE)||(modulereset==FALSE)){
 	chuanhao('7');
 	m_target_number+="7";
 	UpdateData(FALSE);
+	}
 }
 
-void CBeidouDlg::OnButton7() 
+void CBeidouDlg::OnButton7() //对应数字8键，写反了
 {
 	// TODO: Add your control notification handler code here
+	if((modulereset==FALSE)||(modulereset==FALSE)){
 	chuanhao('8');
 	m_target_number+="8";
 	UpdateData(FALSE);
+	}
 }
 
 void CBeidouDlg::OnButton9() 
 {
 	// TODO: Add your control notification handler code here
+	if((modulereset==FALSE)||(modulereset==FALSE)){
 	chuanhao('9');
 	m_target_number+="9";
 	UpdateData(FALSE);
+	}
 }
 
 void CBeidouDlg::OnButton10() 
 {
 	// TODO: Add your control notification handler code here
+	if((modulereset==FALSE)||(modulereset==FALSE)){
 	chuanhao('0');
 	m_target_number+="0";
 	UpdateData(FALSE);
+	}
 }
 
 void CBeidouDlg::OnButtonXing() 
 {
 	// TODO: Add your control notification handler code here
+	if((modulereset==FALSE)||(modulereset==FALSE)){
 	chuanhao('*');
 	m_target_number+="*";
 	UpdateData(FALSE);
+	}
 }
 
 void CBeidouDlg::OnButtonJing() 
 {
 	// TODO: Add your control notification handler code here
+	if((modulereset==FALSE)||(modulereset==FALSE)){
 	chuanhao('#');
 	m_target_number+="#";
 	UpdateData(FALSE);
+	}
 }
 
 void CBeidouDlg::OnButtonBack() 
@@ -1915,19 +1975,19 @@ void CBeidouDlg::OnComm_YW()
 	}else if ((flag_com_init_ack_YW==1)&&(frame_receive[1]=='s')&&(frame_receive[2]=='w')&&(frame_receive[3]=='h')&&(frame_receive[4]=='_')
 		&&(frame_receive[5]=='_')&&(frame_receive[6]==index_control_times)&&(frame_receive[8]==XOR(frame_receive,8)))//切换音频开关申请帧
 	{
-		if (frame_receive[7]==1)
+		if ((frame_receive[7]-0x30)==1)
 		{
 			m_StatBar->SetText("运维板状态：开关切换为1",4,0); 
 		} 
-		else if (frame_receive[7]==2)
+		else if ((frame_receive[7]-0x30)==2)
 		{
 			m_StatBar->SetText("运维板状态：开关切换为2",4,0); 
 		}
-		else if (frame_receive[7]==3)
+		else if ((frame_receive[7]-0x30)==3)
 		{
 			m_StatBar->SetText("运维板状态：开关切换为3",4,0); 
 		}
-		else if (frame_receive[7]==4)
+		else if ((frame_receive[7]-0x30)==4)
 		{
 			m_StatBar->SetText("运维板状态：开关切换为4",4,0); 
 		}
@@ -2074,4 +2134,127 @@ void CBeidouDlg::OnSelendokComboComselectYw()
 	
 	strTemp.Format(_T("%d"),m_DCom_YW);
 	::WritePrivateProfileString("ConfigInfo","com_r_YW",strTemp,".\\config_phonemessage.ini");
+}
+
+void CBeidouDlg::module_reset(int index)//复位指定模块
+{
+	if(SerialPortOpenCloseFlag_YW==TRUE)//只有当运维板串口打开了，才可以使用
+	{
+		if (index_control_times<200)
+		{
+			index_control_times++;
+			if ((index_control_times==0x0d)||(index_control_times==0x24))
+			{
+				index_control_times++;
+			}
+		} 
+		else
+		{
+			index_control_times=0;
+		}
+		frame_board_reset_YW[5]=index_control_times;
+		frame_board_reset_YW[6]=index+0x30;//复位模块 1：有线电话；2：卫星电话；3：3G模块；4：北斗模块；5：广播板；6：其他；
+		frame_board_reset_YW[7]=XOR(frame_board_reset_YW,7);
+		if ((frame_board_reset_YW[7]=='$')||(frame_board_reset_YW[7]==0x0d))
+		{
+			frame_board_reset_YW[7]++;//如果异或结果是$或0x0d，则值加一
+		}
+		frame_board_reset_YW[8]='\r';
+		frame_board_reset_YW[9]='\n';
+		CByteArray Array;
+		Array.RemoveAll();
+		Array.SetSize(8+2);
+		
+		for (int i=0;i<(8+2);i++)
+		{
+			Array.SetAt(i,frame_board_reset_YW[i]);
+		}
+		
+		if(m_comm_YW.GetPortOpen())
+		{
+			m_comm_YW.SetOutput(COleVariant(Array));//发送数据
+		}
+		index_resent_data_frame=6;//6运维板复位重传帧编号
+	}	
+}
+
+void CBeidouDlg::OnModuleReset() 
+{
+	// TODO: Add your control notification handler code here
+	if (soundswitch==TRUE)
+	{
+		OnSoundSwitch();
+	}
+	 
+	if (modulereset==FALSE)
+	{
+		modulereset=TRUE;
+		GetDlgItem(IDC_MODULE_RESET)->SetWindowText("取消复位");
+	} 
+	else
+	{
+		modulereset=FALSE;
+		GetDlgItem(IDC_MODULE_RESET)->SetWindowText("手动复位");
+	}
+}
+
+void CBeidouDlg::sound_switch(int index)
+{
+	if(SerialPortOpenCloseFlag_YW==TRUE)//只有当运维板串口打开了，才可以使用
+	{
+		if (index_control_times<200)
+		{
+			index_control_times++;
+			if ((index_control_times==0x0d)||(index_control_times==0x24))
+			{
+				index_control_times++;
+			}
+		} 
+		else
+		{
+			index_control_times=0;
+		}
+		frame_board_sound_YW[5]=index_control_times;
+		frame_board_sound_YW[6]=index+0x30;//复位模块 1：有线电话；2：卫星电话；3：3G模块；4：北斗模块；5：广播板；6：其他；
+		frame_board_sound_YW[7]=XOR(frame_board_sound_YW,7);
+		if ((frame_board_sound_YW[7]=='$')||(frame_board_sound_YW[7]==0x0d))
+		{
+			frame_board_sound_YW[7]++;//如果异或结果是$或0x0d，则值加一
+		}
+		frame_board_sound_YW[8]='\r';
+		frame_board_sound_YW[9]='\n';
+		CByteArray Array;
+		Array.RemoveAll();
+		Array.SetSize(8+2);
+		
+		for (int i=0;i<(8+2);i++)
+		{
+			Array.SetAt(i,frame_board_sound_YW[i]);
+		}
+		
+		if(m_comm_YW.GetPortOpen())
+		{
+			m_comm_YW.SetOutput(COleVariant(Array));//发送数据
+		}
+		index_resent_data_frame=6;//6运维板复位重传帧编号
+	}	
+}
+
+void CBeidouDlg::OnSoundSwitch() 
+{
+	// TODO: Add your control notification handler code here
+	if (modulereset==TRUE)
+	{
+		OnModuleReset();//音频切换与手动复位只有一个可用
+	}
+	if (soundswitch==FALSE)
+	{
+		soundswitch=TRUE;
+		GetDlgItem(IDC_SOUND_SWITCH)->SetWindowText("关闭切换");
+	} 
+	else
+	{
+		soundswitch=FALSE;
+		GetDlgItem(IDC_SOUND_SWITCH)->SetWindowText("音频切换");
+	}
 }

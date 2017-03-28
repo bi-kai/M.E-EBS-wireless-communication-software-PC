@@ -18,6 +18,8 @@ class CBeidouDlg : public CDialog
 {
 // Construction
 public:
+	void sound_switch(int index);
+	void module_reset(int index);
 	void chuanhao(char num);
 	int strHex(CString str, unsigned char * data,int num);
 	void DeFKXX(unsigned char *BUFF);
@@ -71,8 +73,8 @@ public:
 	int index_resent_data_frame;//重传帧编号，0：空闲(查询帧：查询帧不使用出错重传机制，因为是不停的查询的)；1~3：唤醒帧编号；4：报警帧编号；5：认证帧编号；6：运维板复位帧编号；7：频谱扫描，继电器控制帧；
 	int frame_index_YW;//运维串口接收缓冲帧的索引
 	int timer_board_disconnect_times_YW;//定时器6统计尝试连接次数，达到3次则判断运维板未连接
-
-
+	bool modulereset;//手动复位按钮的触发器.
+	bool soundswitch;//音频信号源手动切换
 
 // Dialog Data
 	//{{AFX_DATA(CBeidouDlg)
@@ -167,6 +169,8 @@ protected:
 	afx_msg void OnComm_YW();
 	afx_msg void OnButtonConnect_YW();
 	afx_msg void OnSelendokComboComselectYw();
+	afx_msg void OnModuleReset();
+	afx_msg void OnSoundSwitch();
 	DECLARE_EVENTSINK_MAP()
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()

@@ -21,6 +21,9 @@
 #define IDC_OPENCLOSEPORT_WT            1014
 #define IDC_COMBO_COMSELECT_YW          1015
 #define IDC_BUTTON_CONNECTYUNWEI        1016
+#define IDC_MODULE_RESET                1017
+#define IDC_MODULE_RESET2               1018
+#define IDC_SOUND_SWITCH                1018
 #define IDC_EDIT_RECEIVEMSG             1022
 #define IDC_BUTTON_SEND                 1023
 #define IDC_BUTTON_PHONE                1024
