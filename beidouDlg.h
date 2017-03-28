@@ -16,6 +16,26 @@
 #define SATELLITEID 3
 #define AUTORESPONSE_TIME 20000//20s未输入，则自动挂断
 #define NOPICKUP_TIME 60000//60s未接听，则自动挂断
+
+#define Sig 10
+#define Pos 1
+#define Msg 2
+#define Bst 3
+#define Icc 4
+#define Sts 5
+#define Zst 6
+#define Zrd 7
+#define Tim 8
+#define FKXX 9
+#define received_frame_size 5//缓冲区数组个数
+
+#define QUERY_INTERVAL 3000//定时器2中断间隔，10s查询一次子板的连接状况
+#define QUERY_WT 7000//有线电话基于查询间隔的偏移时间
+#define QUERY_3G 10000//3G基于查询间隔的偏移时间
+#define QUERY_BD 6000//北斗基于查询间隔的偏移时间
+#define QUERY_ST 3000//卫星电话基于查询间隔的偏移时间
+#define QUERY_YW 1500//运维板基于查询间隔的偏移时间
+#define QUERY_TOLERATE_TIMES 2//查询该次数后若未联通，则判断模块断开
 /////////////////////////////////////////////////////////////////////////////
 // CBeidouDlg dialog
 
@@ -44,7 +64,7 @@ public:
 	CRect rectSeparator;
 
 	int switch_state;//顶部通信模式串口切换标志位，区分接下来是要打电话还是发短信，0：打电话窗口；1：发短信窗口；
-	bool state_system[4];//本软件功能模块可用状态标志。[0]：有线电话可用状态标志0：不可用，1：可用；[1]：3G电话状态；[2]：卫星电话状态；[3]：北斗状态；
+	bool state_system[4];//本软件功能模块可用状态标志。[0]：有线电话可用状态标志1：故障，0：可用；[1]：3G电话状态；[2]：卫星电话状态；[3]：北斗状态；
 
 	int m_DCom;//北斗串口号
 	int m_DCom_WT;//有线电话串口号
@@ -61,6 +81,7 @@ public:
 	unsigned int framelen;//帧长计数器
 	bool comm_init;//串口初次初始化标志位
 	CStatusBarCtrl *m_StatBar;//状态栏
+	int timer_board_disconnect_times_BD;//定时器8,9统计尝试连接次数，达到3次则判断北斗未连接
 	/***************有线电话**************************/
 	BOOL SerialPortOpenCloseFlag_WT;//有线电话串口打开关闭标志位
 	int WT_state;//有线电话状态。0：空闲；1：摘机；2：拨号；3：通话；4：；
@@ -68,6 +89,7 @@ public:
 	bool flag_PW_in_busy;//有线电话接听电话状态。1:接电话中;0：空闲中；
 	bool flag_PW_out_busy;//有线电话拨出电话状态。1:拨出电话中;0：空闲中；
 	CString send_string;//被叫后，传号的号码，以#结束
+	int timer_board_disconnect_times_WT;//定时器4,5统计尝试连接次数，达到3次则判断有线电话未连接
 	/***************运维******************************/
 	BOOL SerialPortOpenCloseFlag_YW;//运维串口打开关闭标志位
 	bool flag_com_init_ack_YW;//上位机软件查询运维板，运维板对查询信息的应答标志位。1:连接成功；0：连接失败；
@@ -76,10 +98,12 @@ public:
 	unsigned char index_control_times;//控制帧发送次数计数器，上下位机通信，保证每帧数据都不同
 	int index_resent_data_frame;//重传帧编号，0：空闲(查询帧：查询帧不使用出错重传机制，因为是不停的查询的)；1~3：唤醒帧编号；4：报警帧编号；5：认证帧编号；6：运维板复位帧编号；7：频谱扫描，继电器控制帧；
 	int frame_index_YW;//运维串口接收缓冲帧的索引
-	int timer_board_disconnect_times_YW;//定时器6统计尝试连接次数，达到3次则判断运维板未连接
+	int timer_board_disconnect_times_YW;//定时器6,7统计尝试连接次数，达到3次则判断运维板未连接
 	bool modulereset;//手动复位按钮的触发器.
 	bool soundswitch;//音频信号源手动切换
 	/***************3G电话**************************/
+
+
 
 // Dialog Data
 	//{{AFX_DATA(CBeidouDlg)

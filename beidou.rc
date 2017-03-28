@@ -13,7 +13,7 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// Chinese (中国) resources
+// Chinese (P.R.C.) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
 #ifdef _WIN32
@@ -103,7 +103,7 @@ BEGIN
     ICON            IDI_ICON_OFF,IDC_STATIC_OPENOFF,425,32,20,20
     EDITTEXT        IDC_EDIT_RECEIVEMSG,202,15,202,154,ES_MULTILINE | 
                     ES_UPPERCASE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | 
-                    ES_READONLY | WS_VSCROLL | WS_HSCROLL
+                    ES_READONLY | WS_HSCROLL
     PUSHBUTTON      "发送信息",IDC_BUTTON_SEND,337,216,63,53
     EDITTEXT        IDC_EDIT_SENDMSG,219,186,114,84,ES_AUTOHSCROLL
     PUSHBUTTON      "清除接收内容",IDC_BUTTON_CLEAR,337,185,63,25
@@ -455,7 +455,7 @@ BEGIN
     IDS_ABOUTBOX            "关于 beidou(&A)..."
 END
 
-#endif    // Chinese (中国) resources
+#endif    // Chinese (P.R.C.) resources
 /////////////////////////////////////////////////////////////////////////////
 
 

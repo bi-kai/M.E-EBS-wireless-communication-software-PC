@@ -16,19 +16,19 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
+/*
+TIMER1,2 使能发送消息按钮及刷新北斗进度条
+TIMER3 有线电话摘机拨号对用户透明
 
-#define Sig 10
-#define Pos 1
-#define Msg 2
-#define Bst 3
-#define Icc 4
-#define Sts 5
-#define Zst 6
-#define Zrd 7
-#define Tim 8
-#define FKXX 9
-#define received_frame_size 5//缓冲区数组个数
+TIMER4,5 有线电话
+TIMER6,7 运维
+TIMER8,9 北斗
+TIMER10,11 3G
+TIMER12,13 卫星电话
 
+TIMER33,34 自动应答
+*/
+/*************北斗******************************/
 unsigned char frame_IC_check[12]={0x24,0x49,0x43,0x4A,0x43,0x00,0x0C,0x00,0x00,0x00,0x01,0x2A};//IC查询
 unsigned char frame_SYS_check[11]={0x24,0x53,0x74,0x73,0x5F,0x00,0x0B};//系统检测
 unsigned char frame_POWER_check[12]={0x24,0x47,0x4C,0x4A,0x43,0x00,0x0C,0x00,0x00,0x00,0x01,0x2B};//功率查询
@@ -45,8 +45,6 @@ unsigned char frame_board_reset_YW[8+2]={'$','r','s','e','_'};//运维复位帧
 unsigned char frame_board_sound_YW[8+2]={'$','s','w','h','_'};//运维切换音频开关申请帧
 unsigned char frame_board_connect_YW[7+2]={'$','p','p','p','_'};//运维上位机两个软件相互查询帧
 unsigned char frame_board_scan_YW[7+2]={'$','s','c','a','_'};//运维频谱扫描，继电器控制帧
-
-#define TIMER2_MS 10000//定时器2中断间隔，10s查询一次子板的连接状况
 /////////////////////////////////////////////////////////////////////////////
 // CAboutDlg dialog used for App About
 
@@ -440,6 +438,9 @@ BOOL CBeidouDlg::OnInitDialog()
 	WT_state=0;//电话机状态，初始化置为空闲
 	flag_PW_in_busy=0;//初始值
 	flag_PW_out_busy=0;//初始值
+	timer_board_disconnect_times_WT=0;
+	timer_board_disconnect_times_YW=0;
+	timer_board_disconnect_times_BD=0;
 	
 	return TRUE;  // return TRUE  unless you set the focus to a control
 	}
@@ -642,13 +643,14 @@ void CBeidouDlg::OnOpencloseport()
 			m_comm.SetPortOpen(TRUE);//打开串口
 			GetDlgItem(IDC_OPENCLOSEPORT)->SetWindowText("关闭串口");
 			m_ctrlIconOpenoff.SetIcon(m_hIconRed);
-			m_StatBar->SetText("北斗：已连接",3,0);
+			m_StatBar->SetText("北斗：串口已连接",3,0);
 			GetDlgItem(IDC_BUTTON_ICCHECK)->EnableWindow(TRUE);
 			GetDlgItem(IDC_BUTTON_CLEAR)->EnableWindow(TRUE);
 			GetDlgItem(IDC_BUTTON_SYSTEMCHECK)->EnableWindow(TRUE);
 			GetDlgItem(IDC_BUTTON_SEND)->EnableWindow(TRUE);
 			GetDlgItem(IDC_BUTTON3_POWERCHECK)->EnableWindow(TRUE);
-
+			
+			Sleep(20);//等待串口稳定
 			//打开串口后进行IC查询，取出卡号
 			CByteArray Array;
 			Array.RemoveAll();
@@ -663,6 +665,7 @@ void CBeidouDlg::OnOpencloseport()
 			{
 				m_comm.SetOutput(COleVariant(Array));//发送数据
 			}
+			SetTimer(8,(QUERY_INTERVAL+QUERY_BD),NULL);
 		}
 		else
 			MessageBox("can not open serial port");	 
@@ -673,11 +676,11 @@ void CBeidouDlg::OnOpencloseport()
 		GetDlgItem(IDC_OPENCLOSEPORT)->SetWindowText("打开串口");
 		m_ctrlIconOpenoff.SetIcon(m_hIconOff);
 		m_comm.SetPortOpen(FALSE);//关闭串口
-		m_StatBar->SetText("北斗：已断开",3,0);
+		m_StatBar->SetText("北斗：串口已断开",3,0);
 
 		m_board_led_BD.SetIcon(m_hIconOff);
 		GetDlgItem(IDC_STATIC_BOARDCONNECT_BD)->SetWindowText(" 北斗已断开！");
-		
+		KillTimer(8);
 		GetDlgItem(IDC_BUTTON_SYSTEMCHECK)->EnableWindow(FALSE);
 		GetDlgItem(IDC_BUTTON_ICCHECK)->EnableWindow(FALSE);
 		GetDlgItem(IDC_BUTTON3_POWERCHECK)->EnableWindow(FALSE);
@@ -689,9 +692,7 @@ void CBeidouDlg::OnOpencloseport()
 void CBeidouDlg::OnSelendokComboComselect() 
 {
 	// TODO: Add your control notification handler code here
-	CBeidouApp *app = (CBeidouApp *)AfxGetApp(); //生成指向应用程序类的指针
-	app->m_nCom=m_Com.GetCurSel()+1;
-	m_DCom=app->m_nCom;
+	m_DCom=m_Com.GetCurSel()+1;
 	UpdateData();	
 
 	CString strTemp;
@@ -979,6 +980,9 @@ void CBeidouDlg::OnButtonIccheck()
 	// TODO: Add your control notification handler code here
 	m_cardnumber=0;
 	m_category=0;
+	m_cardstate ="";
+	m_basestate="";
+
 	CByteArray Array;
 	Array.RemoveAll();
 	Array.SetSize(12);
@@ -997,7 +1001,7 @@ void CBeidouDlg::OnButtonIccheck()
 
 void CBeidouDlg::OnButton3Powercheck() 
 {
-	// TODO: Add your control notification handler code here
+	// TODO: Add your control notification handler code here	
 	m_sata1.SetPos(0);
 	m_sata2.SetPos(0);
  	m_sata3.SetPos(0);
@@ -1031,6 +1035,10 @@ void CBeidouDlg::DeIcc(unsigned char *BUFF)
 	IccFrq= ((int)BUFF[15])*pow(2, 8)+((int)BUFF[16]);
 	comlev = BUFF[15];
 	
+	timer_board_disconnect_times_BD=0;//查询计数器归零
+	m_board_led_BD.SetIcon(m_hIconRed);
+	GetDlgItem(IDC_STATIC_BOARDCONNECT_BD)->SetWindowText(" 北斗已连接！");
+
 	if ((comm_init==0)&&(_Useraddr!=0))//初次初始化串口，将卡号提出，完成各帧
 	{
 		comm_init=1;
@@ -1085,8 +1093,7 @@ void CBeidouDlg::decodeheads(unsigned char *BUFF)
 		else if (strncmp((const char *)BUFF, "$Bst_",5)==0) command_type= Bst;//
 		else if (strncmp((const char *)BUFF, "$DWSQ",5)==0) command_type= Pos;//
 
-		m_board_led_BD.SetIcon(m_hIconRed);
-		GetDlgItem(IDC_STATIC_BOARDCONNECT_BD)->SetWindowText(" 北斗已连接！"); 
+		
 		
 		switch(command_type)
 		{
@@ -1136,10 +1143,11 @@ void CBeidouDlg::DeSig(unsigned char *BUFF)
 {
 //	long _Useraddr;
 	unsigned char Sigx[6]={0},power_buf=0;
-
+	
+	state_system[4]=0;//北斗可用
 	for(short i = 0;i<6;i++)
 	Sigx[i]=BUFF[i+10];
-//	_Useraddr=((long)BUFF[7])*pow(2, 16)+((long)BUFF[8])*pow(2, 8)+((long)BUFF[9]);
+//	_Useraddr=((long)BUFF[7])*pow(2, 16)+((long)BUFF[8])*pow(2, 8)+((long)BUFF[9]); 
 
 	power_buf=(Sigx[0]>Sigx[1])?Sigx[0]:Sigx[1];
 	m_sata1.SetPos(power_buf);
@@ -1345,9 +1353,121 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 	{
 		OnButtonCall();//使摘机动作对用户透明，先操作一次摘机再调用一次，用于拨号
 		KillTimer(3);
-	}else if(nIDEvent==4){//对方未拨通，而挂机，将拨打电话按钮上的文本重置
-
-		KillTimer(4);
+	}else if(nIDEvent==4){//有线电话定期轮检
+		char lpOutBuffer[] = {'A','T','H','\r','\n'};//接着上传ATH指令进行挂机
+		CByteArray Array;
+		Array.RemoveAll();    
+		Array.SetSize(5);		
+		
+		for (int i=0; i<5; i++)
+		{
+			Array.SetAt(i,lpOutBuffer[i]);
+		}
+		if(m_comm_WT.GetPortOpen())
+		{
+			m_comm_WT.SetOutput(COleVariant(Array));//发送数据
+		}
+		if(timer_board_disconnect_times_WT==0)timer_board_disconnect_times_WT++;
+		SetTimer(5,2000,NULL);//定时器4发出轮检查询帧后，打开定时器5，3次超时timer_board_disconnect_times_WT未被清零，则标记故障
+	
+	}else if(nIDEvent==5){
+		if (timer_board_disconnect_times_WT!=0)
+		{
+			timer_board_disconnect_times_WT++;
+		}
+		if (timer_board_disconnect_times_WT>=QUERY_TOLERATE_TIMES)
+		{
+			state_system[0]=1;//有线电话故障
+			timer_board_disconnect_times_WT=0;
+			m_board_led_WT.SetIcon(m_hIconOff);
+			GetDlgItem(IDC_STATIC_BOARDCONNECT_WT)->SetWindowText("有线电话连接丢失!");
+		}
+		KillTimer(5);
+	}
+	//////////////////////以上用于有线电话/////////////////////////////////
+	else if (nIDEvent==6)//运维板轮检，类似于定时器4
+	{
+		if (index_wakeup_times<200)
+		{
+			index_wakeup_times++;
+			if ((index_wakeup_times==0x0d)||(index_wakeup_times==0x24))
+			{
+				index_wakeup_times++;
+			}
+		} 
+		else
+		{
+			index_wakeup_times=0;
+		}
+		frame_board_check_YW[5]=index_wakeup_times;
+		frame_board_check_YW[6]=XOR(frame_board_check_YW,6);
+		if ((frame_board_check_YW[6]=='$')||(frame_board_check_YW[6]==0x0d))
+		{
+			frame_board_check_YW[6]++;//如果异或结果是$或0x0d，则值加一
+		}
+		frame_board_check_YW[7]='\r';
+		frame_board_check_YW[8]='\n';
+		CByteArray Array;
+		Array.RemoveAll();
+		Array.SetSize(7+2);
+		
+		for (int i=0;i<(7+2);i++)
+		{
+			Array.SetAt(i,frame_board_check_YW[i]);
+		}
+		
+		if(m_comm_YW.GetPortOpen())
+		{
+			m_comm_YW.SetOutput(COleVariant(Array));//发送数据
+		}
+		
+		if(timer_board_disconnect_times_YW==0)timer_board_disconnect_times_YW++;
+		SetTimer(7,1000,NULL);//定时器6发出轮检查询帧后，打开定时器7，3次超时timer_board_disconnect_times_YW未被清零，则标记故障
+		
+	}else if(nIDEvent==7){//运维板查询不通，次数统计.类似于定时器
+		if (timer_board_disconnect_times_YW!=0)
+		{
+			timer_board_disconnect_times_YW++;
+		}
+		if (timer_board_disconnect_times_YW>=QUERY_TOLERATE_TIMES)
+		{
+			timer_board_disconnect_times_YW=0;
+			m_board_led_YW.SetIcon(m_hIconOff);
+			GetDlgItem(IDC_STATIC_BOARDCONNECT_YW)->SetWindowText("运维板连接丢失!");
+		}
+		KillTimer(7);
+	}
+	///////////////////////以上用于运维板定期查询///////////////////////////
+	else if(nIDEvent==8){//北斗定期轮检
+		CByteArray Array;
+		Array.RemoveAll();
+		Array.SetSize(12);
+		for (int i=0; i<12; i++)
+		{
+			Array.SetAt(i,frame_IC_check[i]);
+		}
+		
+		
+		if(m_comm.GetPortOpen())
+		{
+			m_comm.SetOutput(COleVariant(Array));//发送数据
+		}
+		if(timer_board_disconnect_times_BD==0)timer_board_disconnect_times_BD++;
+		SetTimer(9,1500,NULL);//定时器8发出轮检查询帧后，打开定时器9，3次超时timer_board_disconnect_times_BD未被清零，则标记故障
+		
+	}else if(nIDEvent==9){
+		if (timer_board_disconnect_times_BD!=0)
+		{
+			timer_board_disconnect_times_BD++;
+		}
+		if (timer_board_disconnect_times_BD>=QUERY_TOLERATE_TIMES)
+		{
+			state_system[4]=1;//北斗故障
+			timer_board_disconnect_times_BD=0;
+			m_board_led_BD.SetIcon(m_hIconOff);
+			GetDlgItem(IDC_STATIC_BOARDCONNECT_BD)->SetWindowText("北斗连接丢失!");
+		}
+		KillTimer(9);
 	}
 	//////////////////////以上用于有线电话/////////////////////////////////
 	//-----------------自动应答：5 S----------------------
@@ -1363,6 +1483,7 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 	}
 	//-----------------自动应答：5 E----------------------
 	///////////////////////以上用于自动应答/////////////////////////////////
+	
 	CDialog::OnTimer(nIDEvent);
 }
 
@@ -1457,9 +1578,7 @@ void CBeidouDlg::OnComm_WT()
 			frame_index_WT++;			
 		}
 	
-	m_StatBar->SetText("有线电话：已连接",0,0);
-	m_board_led_WT.SetIcon(m_hIconRed);
-	GetDlgItem(IDC_STATIC_BOARDCONNECT_WT)->SetWindowText(" 有线电话已连接！"); 
+	
 
 	if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='N'))//检测是否为DTMF信号
 	{
@@ -1540,6 +1659,10 @@ void CBeidouDlg::OnComm_WT()
 		m_FKXX+="\r\n";
 	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='H'))//检测是否挂机成功
 	{
+		m_board_led_WT.SetIcon(m_hIconRed);
+		GetDlgItem(IDC_STATIC_BOARDCONNECT_WT)->SetWindowText(" 有线电话已连接！"); 
+		timer_board_disconnect_times_WT=0;//查询计数器归零
+		state_system[0]=0;//有线电话可用
 		m_FKXX+="挂机成功";
 		m_FKXX+="\r\n";
 	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='B'))//检测是否传号成功
@@ -1621,10 +1744,26 @@ void CBeidouDlg::OnOpencloseportWT()
 		{			
 			m_comm_WT.SetPortOpen(TRUE);//打开串口
 			GetDlgItem(IDC_OPENCLOSEPORT_WT)->SetWindowText("关闭串口");
-			m_StatBar->SetText("有线电话：已连接",0,0);
+			m_StatBar->SetText("有线电话：串口已连接",0,0);
 			m_openoff_WT.SetIcon(m_hIconRed);
+			
+			Sleep(70);//等待串口稳定
+			char lpOutBuffer[] = {'A','T','H','\r','\n'};//接着上传ATH指令进行挂机
+			CByteArray Array;
+			Array.RemoveAll();    
+			Array.SetSize(5);		
+			
+			for (int i=0; i<5; i++)
+			{
+				Array.SetAt(i,lpOutBuffer[i]);
+			}
+			if(m_comm_WT.GetPortOpen())
+			{
+				m_comm_WT.SetOutput(COleVariant(Array));//发送数据
+			}
 
 			GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
+			SetTimer(4,(QUERY_INTERVAL+QUERY_WT),NULL);
 		}
 		else
 			MessageBox("串口无法打开.");	 
@@ -1633,14 +1772,14 @@ void CBeidouDlg::OnOpencloseportWT()
 	{
 		SerialPortOpenCloseFlag_WT=FALSE;
 		GetDlgItem(IDC_OPENCLOSEPORT_WT)->SetWindowText("打开串口");
-		m_StatBar->SetText("有线电话：已断开",0,0);
 		m_openoff_WT.SetIcon(m_hIconOff);
 		m_comm_WT.SetPortOpen(FALSE);//关闭串口
-
+		
 		m_board_led_WT.SetIcon(m_hIconOff);
 		GetDlgItem(IDC_STATIC_BOARDCONNECT_WT)->SetWindowText(" 有线电话已断开！"); 
-
 		GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
+		m_StatBar->SetText("有线电话：串口已断开",0,0);
+		KillTimer(4);
 	}
 }
 
@@ -2172,7 +2311,7 @@ void CBeidouDlg::OnButtonConnect_YW()
 
 		//以下是串口的初始化配置
 		if(m_comm_YW.GetPortOpen())//打开端口前的检测，先关，再开
-			MessageBox("can not open serial port");
+			MessageBox("串口无法打开！");
 //			m_comm.SetPortOpen(FALSE);	//	
 		m_comm_YW.SetCommPort(m_DCom_YW); //选择端口，默认是com3
 		m_comm_YW.SetSettings((LPSTR)(LPCTSTR)string1); //波特率115200，无校验，8个数据位，1个停止位
@@ -2219,7 +2358,7 @@ void CBeidouDlg::OnButtonConnect_YW()
 				m_comm_YW.SetOutput(COleVariant(Array));//发送数据
 			}
 			index_resent_data_frame=0;//连接帧不支持重传机制
-			SetTimer(6,(TIMER2_MS+3000),NULL);//没有处在频谱扫描阶段才打开定期查询，10+3秒(与广播板的查询在时间上错开)查询一次子板是否保持连接。恢复硬件连接时，可以自动连接
+			SetTimer(6,(QUERY_INTERVAL+QUERY_YW),NULL);//没有处在频谱扫描阶段才打开定期查询，10+3秒(与广播板的查询在时间上错开)查询一次子板是否保持连接。恢复硬件连接时，可以自动连接
 		}
 		else
 			MessageBox("无法打开运维板串口，请重试！");	 
@@ -2231,7 +2370,7 @@ void CBeidouDlg::OnButtonConnect_YW()
 		m_StatBar->SetText("运维板状态：串口已关闭",4,0); //以下类似
 		m_ctrlIconOpenoff_YW.SetIcon(m_hIconOff);
 		m_board_led_YW.SetIcon(m_hIconOff);
-		GetDlgItem(IDC_STATIC_BOARDCONNECT_YW)->SetWindowText(" 运维板未连接！");
+		GetDlgItem(IDC_STATIC_BOARDCONNECT_YW)->SetWindowText(" 运维板已断开！");
 		flag_com_init_ack_YW=0;//运维板未连接
 		m_comm_YW.SetPortOpen(FALSE);//关闭串口
 		KillTimer(6);
@@ -2414,3 +2553,4 @@ void CBeidouDlg::OnChangeEditSendmsg()
 	// TODO: Add your control notification handler code here
 	UpdateData(TRUE);
 }
+
