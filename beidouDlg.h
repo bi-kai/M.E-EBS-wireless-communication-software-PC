@@ -33,7 +33,7 @@ public:
 // Dialog Data
 	//{{AFX_DATA(CBeidouDlg)
 	enum { IDD = IDD_BEIDOU_DIALOG };
-	CTabCtrl	m_tab;
+//	CTabCtrl	m_tab;
 	CProgressCtrl	m_timer;
 	CProgressCtrl	m_sata3;
 	CProgressCtrl	m_sata2;

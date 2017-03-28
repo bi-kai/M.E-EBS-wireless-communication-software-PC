@@ -107,7 +107,7 @@ void CBeidouDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
 	//{{AFX_DATA_MAP(CBeidouDlg)
-	DDX_Control(pDX, IDC_TAB1, m_tab);
+//	DDX_Control(pDX, IDC_TAB1, m_tab);
 	DDX_Control(pDX, IDC_PROGRESS_TIMER, m_timer);
 	DDX_Control(pDX, IDC_PROGRESS3, m_sata3);
 	DDX_Control(pDX, IDC_PROGRESS2, m_sata2);

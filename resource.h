@@ -19,8 +19,11 @@
 #define IDC_COMBO_STOPBITS2             1012
 #define IDC_EDIT_RECEIVEMSG             1022
 #define IDC_BUTTON_SEND                 1023
+#define IDC_BUTTON_PHONE                1024
 #define IDC_EDIT_SENDMSG                1025
 #define IDC_STATIC_OPENOFF              1026
+#define IDC_BUTTON_MESSAGE              1027
+#define IDC_BUTTON_SEND4                1028
 #define IDC_BUTTON_CLEAR                1029
 #define IDC_BUTTON_SYSTEMCHECK          1030
 #define IDC_BUTTON_ICCHECK              1031
@@ -32,10 +35,24 @@
 #define IDC_EDIT_CATEGORY               1037
 #define IDC_EDIT_CARDSTATES             1038
 #define IDC_EDIT_BASESTATES             1039
+#define IDC_BUTTON_1                    1040
+#define IDC_BUTTON_2                    1041
 #define IDC_EDIT5                       1042
 #define IDC_EDIT_FKXX                   1043
+#define IDC_BUTTON_3                    1044
 #define IDC_PROGRESS_TIMER              1045
-#define IDC_TAB1                        1046
+#define IDC_BUTTON_4                    1046
+#define IDC_BUTTON_5                    1047
+#define IDC_BUTTON_6                    1048
+#define IDC_BUTTON_7                    1049
+#define IDC_BUTTON_8                    1050
+#define IDC_BUTTON_9                    1051
+#define IDC_BUTTON_10                   1052
+#define IDC_BUTTON_XING                 1053
+#define IDC_BUTTON_JING                 1054
+#define IDC_BUTTON_13                   1055
+#define IDC_BUTTON_BACK                 1055
+#define IDC_BUTTON_CALL                 1056
 
 // Next default values for new objects
 // 
