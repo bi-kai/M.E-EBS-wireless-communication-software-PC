@@ -95,10 +95,6 @@ public:
 	CProgressCtrl	m_sata2;
 	CProgressCtrl	m_sata1;
 	CStatic	m_ctrlIconOpenoff;
-	CComboBox	m_StopBits;
-	CComboBox	m_Speed;
-	CComboBox	m_Parity;
-	CComboBox	m_DataBits;
 	CComboBox	m_Com;
 	CMSComm	m_comm;
 	CString	m_showmsg;
@@ -136,10 +132,6 @@ protected:
 	afx_msg void OnComm1();
 	afx_msg void OnOpencloseport();
 	afx_msg void OnSelendokComboComselect();
-	afx_msg void OnSelendokComboSpeed();
-	afx_msg void OnSelendokComboParity();
-	afx_msg void OnSelendokComboDatabits();
-	afx_msg void OnSelendokComboStopbits();
 	afx_msg void OnButtonSendMsg();
 	afx_msg void OnButtonClear();
 	afx_msg void OnButtonSystemcheck();

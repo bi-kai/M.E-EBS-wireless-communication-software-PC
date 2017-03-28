@@ -74,6 +74,11 @@
 #define IDC_BUTTON_CLEAR1               1065
 #define IDC_BUTTON_CLEARMSG             1065
 #define IDC_STATIC_BOARDCONNECT2        1066
+#define IDC_STATIC_BOARD_LED_BD         1067
+#define IDC_STATIC_BOARDCONNECT_BD      1068
+#define IDC_STATIC_BOARD_LED_WT         1069
+#define IDC_STATIC_BOARDCONNECT_BD2     1070
+#define IDC_STATIC_BOARDCONNECT_WT      1070
 
 // Next default values for new objects
 // 
