@@ -231,6 +231,7 @@ BOOL CBeidouDlg::OnInitDialog()
 	m_hIconRed  = AfxGetApp()->LoadIcon(IDI_ICON_RED);
 	m_hIconOff	= AfxGetApp()->LoadIcon(IDI_ICON_OFF);
 	GetDlgItem(IDC_COMBO_COMSELECT)->SetWindowText(_T("COM1"));
+	GetDlgItem(IDC_COMBO_COMSELECT_WT)->SetWindowText(_T("COM2"));
 	GetDlgItem(IDC_COMBO_SPEED)->SetWindowText(_T("115200"));
 	GetDlgItem(IDC_COMBO_PARITY)->SetWindowText(_T("NONE"));
 	GetDlgItem(IDC_COMBO_DATABITS)->SetWindowText(_T("8"));
@@ -1295,7 +1296,7 @@ void CBeidouDlg::OnComm_WT()
 void CBeidouDlg::OnOpencloseportWT() 
 {
 	// TODO: Add your control notification handler code here
-	CString string1="9600,n,8,1";
+	CString string1="1200,n,8,1";
 
 	if(SerialPortOpenCloseFlag_WT==FALSE)
 	{
@@ -1557,6 +1558,7 @@ void CBeidouDlg::OnButtonBack()
 	if (m_target_number=="")
 	{
 		GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(FALSE);
 	} 
 	else
 	{

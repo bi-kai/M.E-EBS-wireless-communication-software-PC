@@ -28,7 +28,7 @@ Type=0
 HeaderFile=beidouDlg.h
 ImplementationFile=beidouDlg.cpp
 Filter=D
-LastObject=IDC_EDIT_TARGETNUM
+LastObject=IDC_COMBO_SPEED
 BaseClass=CDialog
 VirtualFilter=dWC
 
@@ -91,7 +91,7 @@ Control37=IDC_EDIT_BASESTATES,edit,1350633600
 Control38=IDC_STATIC,button,1342177287
 Control39=IDC_STATIC,button,1342177287
 Control40=IDC_STATIC,button,1342177287
-Control41=IDC_EDIT_TARGETNUM,edit,1350641794
+Control41=IDC_EDIT_TARGETNUM,edit,1350641793
 Control42=IDC_COMBO_STOPBITS2,combobox,1075904514
 Control43=IDC_EDIT_FKXX,edit,1350633604
 Control44=IDC_STATIC,button,1342177287
