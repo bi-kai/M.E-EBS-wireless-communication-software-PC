@@ -58,6 +58,7 @@ class CBeidouDlg : public CDialog
 {
 // Construction
 public:
+	CString strCollectForSTCall;
 	BOOL bIsTTSPlay;//TTS是否进行中的标志，默认为FALSE
 //	LONG OnCommunication(WPARAM ch, LPARAM port);
 	void applay_broadcast(int n);
@@ -144,8 +145,8 @@ public:
 	bool bTimer48OnOff;//定时器48用于查询CSQ，变量用于短信读取或者发送时，死机或者没反应，开启查询CSQ，默认为FALSE
 	CString SMSIndex[SMSSIZE_10];//用于存放读取短信列表，后短信存储的Index
 	bool bReadsmsTimeFlag;//新短信来临，用于标识相应定时器是否启动，默认为FALSE
-	CString strLongSMSTextStore[SMSSIZE_10];
-	CString strLongSMSIDStore[SMSSIZE_10];
+	CString strLongSMSTextStore[SMSSIZE_10];//长短存储位置
+	CString strLongSMSIDStore[SMSSIZE_10];//长短信ID存储
 	strLongSMS  longSMSStruct;
 	void SendLongSMS(strLongSMS  *structUse);
 	int nLongSMSSendCount;//要发送长短信的总共条数，默认为0，先最多设为3条，进一步扩展为5条
