@@ -6,27 +6,38 @@
 --------------------Configuration: beidou - Win32 Debug--------------------
 </h3>
 <h3>Command Lines</h3>
-Creating temporary file "C:\Users\idol\AppData\Local\Temp\RSP2D49.tmp" with contents
+Creating command line "rc.exe /l 0x804 /fo"Debug/beidou.res" /d "_DEBUG" /d "_AFXDLL" "D:\vc\workspace\通信软件\2013.11.18通信软件\通信软件\beidou.rc"" 
+Creating temporary file "C:\Users\idol\AppData\Local\Temp\RSPE1EF.tmp" with contents
 [
 /nologo /MDd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_AFXDLL" /D "_MBCS" /FR"Debug/" /Fp"Debug/beidou.pch" /Yu"stdafx.h" /Fo"Debug/" /Fd"Debug/" /FD /GZ /c 
-"D:\vc\workspace\通信软件\2013.11.13通信软件\通信软件\beidouDlg.cpp"
+"D:\vc\workspace\通信软件\2013.11.18通信软件\通信软件\beidou.cpp"
 ]
-Creating command line "cl.exe @C:\Users\idol\AppData\Local\Temp\RSP2D49.tmp" 
+Creating command line "cl.exe @C:\Users\idol\AppData\Local\Temp\RSPE1EF.tmp" 
+Creating temporary file "C:\Users\idol\AppData\Local\Temp\RSPE1F0.tmp" with contents
+[
+SkinPPWTL.lib winmm.lib /nologo /subsystem:windows /incremental:yes /pdb:"Debug/beidou.pdb" /debug /machine:I386 /out:"Debug/beidou.exe" /pdbtype:sept 
+".\Debug\3G.obj"
+".\Debug\autoResponse.obj"
+".\Debug\beidou.obj"
+".\Debug\beidouDlg.obj"
+".\Debug\mscomm.obj"
+".\Debug\StdAfx.obj"
+".\Debug\beidou.res"
+]
+Creating command line "link.exe @C:\Users\idol\AppData\Local\Temp\RSPE1F0.tmp"
 <h3>Output Window</h3>
+Compiling resources...
 Compiling...
-beidouDlg.cpp
-D:\vc\workspace\通信软件\2013.11.13通信软件\通信软件\beidouDlg.cpp(634) : warning C4018: '==' : signed/unsigned mismatch
-D:\vc\workspace\通信软件\2013.11.13通信软件\通信软件\beidouDlg.cpp(1145) : warning C4244: '=' : conversion from 'double' to 'long', possible loss of data
-D:\vc\workspace\通信软件\2013.11.13通信软件\通信软件\beidouDlg.cpp(1146) : warning C4244: '=' : conversion from 'double' to 'unsigned int', possible loss of data
-D:\vc\workspace\通信软件\2013.11.13通信软件\通信软件\beidouDlg.cpp(1284) : warning C4244: '=' : conversion from 'double' to 'long', possible loss of data
-D:\vc\workspace\通信软件\2013.11.13通信软件\通信软件\beidouDlg.cpp(1335) : warning C4244: '=' : conversion from 'double' to 'long', possible loss of data
-D:\vc\workspace\通信软件\2013.11.13通信软件\通信软件\beidouDlg.cpp(1338) : warning C4244: '=' : conversion from 'double' to 'int', possible loss of data
-D:\vc\workspace\通信软件\2013.11.13通信软件\通信软件\beidouDlg.cpp(1367) : warning C4244: '=' : conversion from 'double' to 'long', possible loss of data
+beidou.cpp
+Linking...
+Creating command line "bscmake.exe /nologo /o"Debug/beidou.bsc"  ".\Debug\StdAfx.sbr" ".\Debug\3G.sbr" ".\Debug\autoResponse.sbr" ".\Debug\beidou.sbr" ".\Debug\beidouDlg.sbr" ".\Debug\mscomm.sbr""
+Creating browse info file...
+<h3>Output Window</h3>
 
 
 
 <h3>Results</h3>
-beidouDlg.obj - 0 error(s), 0 warning(s)
+beidou.exe - 0 error(s), 0 warning(s)
 </pre>
 </body>
 </html>
