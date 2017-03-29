@@ -307,7 +307,7 @@ BOOL CBeidouDlg::OnInitDialog()
 	m_comm_YW.SetInBufferSize(1024); //设置输入缓冲区大小
 	m_comm_YW.SetOutBufferSize(10240); //设置输出缓冲区大小
 	m_comm_YW.SetSettings("115200,n,8,1"); //波特率1200，无校验，8个数据位，1个停止位	 
-	m_comm_YW.SetRThreshold(7); //参数1表示每当串口接收缓冲区中有多于或等于1个字符时将引发一个接收数据的OnComm事件
+	m_comm_YW.SetRThreshold(1); //参数1表示每当串口接收缓冲区中有多于或等于1个字符时将引发一个接收数据的OnComm事件
 	m_comm_YW.SetInputLen(0); //设置当前接收区数据长度为0
 	//	 m_comm_WT.GetInput();    //先预读缓冲区以清除残留数据
 /********************4、3G串口配置***********************************/	
@@ -705,7 +705,7 @@ void CBeidouDlg::OnOpencloseport()
 //			GetDlgItem(IDC_BUTTON_SEND)->EnableWindow(TRUE);
 			GetDlgItem(IDC_BUTTON3_POWERCHECK)->EnableWindow(TRUE);
 			
-			Sleep(20);//等待串口稳定
+			Sleep(20);//等待串口稳定，再发送北斗的查询消息
 			//打开串口后进行IC查询，取出卡号
 			CByteArray Array;
 			Array.RemoveAll();
@@ -2012,7 +2012,7 @@ void CBeidouDlg::OnOpencloseportWT()
 			m_StatBar->SetText("有线电话：串口已连接",0,0);
 			m_openoff_WT.SetIcon(m_hIconRed);
 			
-			Sleep(70);//等待串口稳定
+			Sleep(70);//等待串口稳定，再发送有线电话的查询消息
 			char lpOutBuffer[] = {'A','T','H','\r','\n'};//接着上传ATH指令进行挂机
 			CByteArray Array;
 			Array.RemoveAll();    
@@ -2528,6 +2528,7 @@ void CBeidouDlg::OnComm_YW()
 	
 	if((m_comm_YW.GetCommEvent()==2)) //事件值为2表示接收缓冲区内有字符
 	{
+		Sleep(100);//等待一帧数据全部存储在缓冲区，避免帧的拼接产生的延迟
 		variant_inp=m_comm_YW.GetInput(); //读缓冲区
 		safearray_inp=variant_inp;  //VARIANT型变量转换为ColeSafeArray型变量
 		len=safearray_inp.GetOneDimSize(); //得到有效数据长度
