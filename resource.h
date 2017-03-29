@@ -23,6 +23,7 @@
 #define IDC_SOUND_SWITCH                1018
 #define IDC_COMBO_COMSELECT_3G          1019
 #define IDC_BUTTON_CONNECT3G            1020
+#define IDC_COMBO_COMSELECT_ST          1021
 #define IDC_EDIT_RECEIVEMSG             1022
 #define IDC_BUTTON_SEND                 1023
 #define IDC_BUTTON_PHONE                1024
@@ -83,6 +84,10 @@
 #define IDC_MSCOMM_3G                   1074
 #define IDC_RSSI                        1075
 #define IDC_CMSERROR                    1076
+#define IDC_BUTTON_CONNECTST            1077
+#define IDC_STATIC_ST                   1078
+#define IDC_STATIC_BOARD_LED_ST         1079
+#define IDC_STATIC_BOARDCONNECT_ST      1080
 
 // Next default values for new objects
 // 

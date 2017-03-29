@@ -151,7 +151,7 @@ funReturn ReversePhoneNum(char *pSrc, char *pDst, int nSrcLength)
 		break;
 	default:
 		a.bToReturn = FALSE;
-		AfxMessageBox("Phone Number or Length error");
+		AfxMessageBox("电话号码或长度有误！");
 		break;
 	}
 	

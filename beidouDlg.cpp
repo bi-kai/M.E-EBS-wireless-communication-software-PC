@@ -1603,7 +1603,7 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 		if (timer_board_disconnect_times_3G>=QUERY_TOLERATE_TIMES)
 		{
 			state_system[1]=1;//3G超时：标记3G故障
-			m_FKXX+="3G信号查询：故障";
+			m_FKXX+="3G信号查询：故障\r\n";
 			UpdateData(FALSE);
 			timer_board_disconnect_times_3G=0;
 			m_board_led_3G.SetIcon(m_hIconOff);
@@ -3174,7 +3174,7 @@ void CBeidouDlg::OnComm_3G()
 			state_system[1]=0;//3G应答：标记3G可用
 			m_board_led_3G.SetIcon(m_hIconRed);
 			GetDlgItem(IDC_STATIC_BOARDCONNECT_3G)->SetWindowText(" 3G已连接！");
-			m_FKXX+="3G信号查询：正常";
+			m_FKXX+="3G信号查询：正常\r\n";
 			UpdateData(FALSE);
 
 			CString str3;
