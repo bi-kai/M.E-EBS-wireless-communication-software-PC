@@ -135,11 +135,12 @@ public:
 	CString send_string_3G;//被叫后，传号的号码，以#结束
 	int timer_board_disconnect_times_3G;//定时器10,11统计尝试连接次数，达到3次则判断有线电话未连接
 //	bool flag_com_init_ack_3G;//上位机软件查询3G，3G对查询信息的应答标志位。1:连接成功；0：连接失败；
-
+	int tel_manual_select;//电话打出方式手动选择。0:自动;1:手动;
 
 // Dialog Data
 	//{{AFX_DATA(CBeidouDlg)
 	enum { IDD = IDD_BEIDOU_DIALOG };
+	CComboBox	m_tel_manual_select;
 	CStatic	m_board_led_3G;
 	CStatic	m_ctrlIconOpenoff_3G;
 	CComboBox	m_Com_3G;
@@ -165,7 +166,6 @@ public:
 	CString	m_cardstate;
 	CString	m_basestate;
 	CString	m_FKXX;
-	int		m_otherID;
 	CString	m_target_number;
 	CMSComm	m_comm_WT;
 	CMSComm	m_comm_YW;
@@ -235,6 +235,7 @@ protected:
 	afx_msg void OnButtonConnect_3G();
 	afx_msg void OnSelendokComboComselect3G();
 	afx_msg void OnComm_3G();
+	afx_msg void OnSelendokComboTelManualSelect();
 	DECLARE_EVENTSINK_MAP()
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()

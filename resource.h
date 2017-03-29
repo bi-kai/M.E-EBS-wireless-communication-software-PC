@@ -13,6 +13,7 @@
 #define IDC_COMBO_COMSELECT             1006
 #define IDC_OPENCLOSEPORT               1011
 #define IDC_COMBO_STOPBITS2             1012
+#define IDC_COMBO_TEL_MANUAL_SELECT     1012
 #define IDC_COMBO_COMSELECT_WT          1013
 #define IDC_OPENCLOSEPORT_WT            1014
 #define IDC_COMBO_COMSELECT_YW          1015

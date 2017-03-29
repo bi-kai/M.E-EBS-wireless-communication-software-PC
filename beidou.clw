@@ -28,7 +28,7 @@ Type=0
 HeaderFile=beidouDlg.h
 ImplementationFile=beidouDlg.cpp
 Filter=D
-LastObject=IDC_EDIT_SENDMSG
+LastObject=IDC_EDIT_CATEGORY
 BaseClass=CDialog
 VirtualFilter=dWC
 
@@ -84,7 +84,7 @@ Control30=IDC_STATIC,button,1342177287
 Control31=IDC_STATIC,button,1342177287
 Control32=IDC_STATIC,button,1342177287
 Control33=IDC_EDIT_TARGETNUM,edit,1350641793
-Control34=IDC_COMBO_STOPBITS2,combobox,1075904514
+Control34=IDC_COMBO_TEL_MANUAL_SELECT,combobox,1344339971
 Control35=IDC_EDIT_FKXX,edit,1353779332
 Control36=IDC_STATIC,button,1342177287
 Control37=IDC_PROGRESS2,msctls_progress32,1350565888

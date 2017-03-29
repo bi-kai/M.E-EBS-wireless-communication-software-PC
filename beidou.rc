@@ -13,7 +13,7 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// Chinese (中国) resources
+// Chinese (P.R.C.) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
 #ifdef _WIN32
@@ -135,8 +135,8 @@ BEGIN
     GROUPBOX        "信息发送",IDC_STATIC,203,173,202,116
     EDITTEXT        IDC_EDIT_TARGETNUM,31,137,152,14,ES_CENTER | 
                     ES_AUTOHSCROLL | ES_READONLY | ES_NUMBER
-    COMBOBOX        IDC_COMBO_STOPBITS2,358,272,42,73,CBS_DROPDOWN | NOT 
-                    WS_VISIBLE | WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_COMBO_TEL_MANUAL_SELECT,623,150,70,93,
+                    CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     EDITTEXT        IDC_EDIT_FKXX,14,67,139,64,ES_MULTILINE | ES_AUTOHSCROLL | 
                     ES_READONLY | WS_VSCROLL | WS_HSCROLL,
                     WS_EX_DLGMODALFRAME | WS_EX_CLIENTEDGE | 
@@ -207,9 +207,9 @@ BEGIN
                     SS_CENTERIMAGE | SS_SUNKEN | WS_BORDER
     CONTROL         "",IDC_MSCOMM_3G,"{648A5600-2C6E-101B-82B6-000000000014}",
                     WS_TABSTOP,685,218,25,25
-    GROUPBOX        "北斗系统检测",IDC_STATIC,521,135,199,29
+    GROUPBOX        "北斗系统检测",IDC_STATIC,521,135,199,49
     LTEXT           "RSSI:",IDC_RSSI,532,150,48,8
-    LTEXT           "CMS ERROR:",IDC_CMSERROR,586,150,128,8
+    LTEXT           "CMS ERROR:",IDC_CMSERROR,532,166,182,8
 END
 
 
@@ -329,12 +329,14 @@ BEGIN
 0x4f43, 0x314d, 0x0035, 
     IDC_COMBO_COMSELECT, 0x403, 6, 0
 0x4f43, 0x314d, 0x0036, 
-    IDC_COMBO_STOPBITS2, 0x403, 5, 0
-0xfab4, 0xebc2, "\000" 
-    IDC_COMBO_STOPBITS2, 0x403, 5, 0
-0xbaba, 0xd6d7, "\000" 
-    IDC_COMBO_STOPBITS2, 0x403, 5, 0
-0xecbb, 0xe0b1, "\000" 
+    IDC_COMBO_TEL_MANUAL_SELECT, 0x403, 5, 0
+0xd4d7, 0xafb6, "\000" 
+    IDC_COMBO_TEL_MANUAL_SELECT, 0x403, 9, 0
+0xd0d3, 0xdfcf, 0xe7b5, 0xb0bb, "\000" 
+    IDC_COMBO_TEL_MANUAL_SELECT, 0x403, 7, 0
+0x4733, 0xe7b5, 0xb0bb, "\000" 
+    IDC_COMBO_TEL_MANUAL_SELECT, 0x403, 9, 0
+0xc0ce, 0xc7d0, 0xe7b5, 0xb0bb, "\000" 
     IDC_MSCOMM_WT, 0x376, 102, 0
 0x0013, 0x0000, 0x0043, 0x006f, 0x0070, 0x0079, 0x0072, 0x0069, 0x0067, 
 0x0068, 0x0074, 0x0020, 0x0028, 0x0063, 0x0029, 0x0020, 0x0031, 0x0039, 
@@ -466,7 +468,7 @@ BEGIN
     IDS_ABOUTBOX            "关于 beidou(&A)..."
 END
 
-#endif    // Chinese (中国) resources
+#endif    // Chinese (P.R.C.) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
