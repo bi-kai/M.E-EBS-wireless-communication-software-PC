@@ -321,6 +321,7 @@ BOOL CBeidouDlg::OnInitDialog()
 	//	 m_comm_3G.GetInput();    //先预读缓冲区以清除残留数据
 	call_in_number_3G="";
 
+	bIsINIProcess = FALSE;
 	nCallFlags = 0;
 	nATCmdID = 0;
 	nEnglishLenth = 0;
@@ -329,8 +330,6 @@ BOOL CBeidouDlg::OnInitDialog()
 	bIsCaller = TRUE;
 	bIsRecord = 0;
 	nCount = 0;
-	//	nFlag = 0;
-	//    nCheckCount = 0;
 	nSMSCount = 0;
 	strSMSIndex = "";
 	strLongSMSText = "";
@@ -1613,7 +1612,20 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 		KillTimer(11);
 	}
 	//////////////////////以上用于3G/////////////////////////////////
-	//-----------------自动应答：5 S----------------------
+	//-----------------3G自动应答：5 S----------------------
+	else if (nIDEvent==31)  
+	{
+		KillTimer(31);
+		if((flag_PW_in_busy==1)||(flag_PW_out_busy==1))OnButtonCall();//对方输入操作超时，挂机
+	}else if (nIDEvent==32)
+	{
+		KillTimer(32);
+		PlaySound(".//Wav//NoResponse.wav", NULL, SND_FILENAME|SND_ASYNC);//对不起，无人应答，请稍微再试
+		OnButtonCall();//本机超时未摘机，挂机		
+	}
+	//-----------------3G自动应答：5 E----------------------
+	///////////////////////以上用于3G自动应答/////////////////////////////////
+	//-----------------有线电话自动应答：5 S----------------------
 	else if (nIDEvent==33)  
 	{
 		KillTimer(33);
@@ -1624,8 +1636,8 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 		PlaySound(".//Wav//NoResponse.wav", NULL, SND_FILENAME|SND_ASYNC);//对不起，无人应答，请稍微再试
 		if((flag_PW_in_busy==1)||(flag_PW_out_busy==1))OnButtonCall();//本机超时未摘机，挂机		
 	}
-	//-----------------自动应答：5 E----------------------
-	///////////////////////以上用于自动应答/////////////////////////////////
+	//-----------------有线电话自动应答：5 E----------------------
+	///////////////////////以上用于优先点哈U自动应答/////////////////////////////////
 	else if (nIDEvent==35)
 	{
 // 		KillTimer(35);
@@ -1636,62 +1648,71 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 	}
 	else if (nIDEvent==40)  
 	{
-		CString strTemp;
-		switch (nATCmdID)
+		if(bINIFail == TRUE) //继续初始化
 		{
-		case 1:			
+				CString strTemp;
+				switch (nATCmdID)
+				{
+				case 1:			
+					KillTimer(40);
+					SendAtCmd("AT+CMEE=1",1);//返回错误代号     ok or error
+					nATCmdID = 3;
+					SetTimer(40,1000,NULL);
+					break;
+				case 3:			
+					KillTimer(40);
+					SendAtCmd("AT+CLIP=1",3);//来电显示  
+					nATCmdID = 5;
+					SetTimer(40,1000,NULL);
+					break;	
+				case 5:
+					KillTimer(40);
+					SendAtCmd("AT+CLVL=4",5);      //耳机音量设置为4
+					nATCmdID = 6;
+					SetTimer(40,1000,NULL);
+					break;
+				case 6:
+					KillTimer(40);
+					SendAtCmd("AT+CSQ",6);      //查询CSQ
+					nATCmdID = 25;
+					SetTimer(40,1000,NULL);
+					break;
+				case 23:       //发送短信
+					KillTimer(40);
+					strTemp = chPDU;
+					SendAtCmd(strTemp,23);
+					nATCmdID = 0;
+		//			SetTimer(40,1000,NULL);
+					break;
+				case 25:			
+					KillTimer(40);
+					SendAtCmd("AT+CNMI=2,1,0,0,0",25);      //新短信通知
+					nATCmdID = 26;
+					SetTimer(40,1000,NULL);
+					break;
+				case 26:			
+					KillTimer(40);
+					SendAtCmd("AT+CPMS=\"ME\",\"ME\",\"ME\"",25);      //新短信通知
+					nATCmdID = 40;
+					SetTimer(40,2000,NULL);
+					break;
+				case 40:
+					KillTimer(40);
+					if(SerialPortOpenCloseFlag_3G==TRUE)m_ctrlIconOpenoff_3G.SetIcon(m_hIconRed);//避免关闭串口与点灯不同步
+					if(tel_manual_select==0)SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);//查询下CSQ。被移动到初始化最后一个定时器中
+					SetTimer(42,2000,NULL);//短信查询 在定时器42里面，2s不能少
+					//将初始化过程关闭在ok里面
+					nATCmdID = 41; //设置为41,只是最后短信列表查询的判断
+					break;
+				default:
+					nATCmdID = 0;
+					break;
+				}
+		}
+		else   //重新开始进行初始化
+		{
 			KillTimer(40);
-			SendAtCmd("AT+CMEE=1",1);//返回错误代号     ok or error
-			nATCmdID = 3;
-			SetTimer(40,1000,NULL);
-			break;
-		case 3:			
-			KillTimer(40);
-			SendAtCmd("AT+CLIP=1",3);//来电显示  
-			nATCmdID = 5;
-			SetTimer(40,1000,NULL);
-			break;	
-		case 5:
-			KillTimer(40);
-			SendAtCmd("AT+CLVL=4",5);      //耳机音量设置为4
-			nATCmdID = 6;
-			SetTimer(40,1000,NULL);
-			break;
-		case 6:
-			KillTimer(40);
-			SendAtCmd("AT+CSQ",6);      //查询CSQ
-			nATCmdID = 25;
-			SetTimer(40,1000,NULL);
-			break;
-		case 23:       //发送短信
-			KillTimer(40);
-			strTemp = chPDU;
-			SendAtCmd(strTemp,23);
-			nATCmdID = 0;
-//			SetTimer(40,1000,NULL);
-			break;
-		case 25:			
-			KillTimer(40);
-			SendAtCmd("AT+CNMI=2,1,0,0,0",25);      //新短信通知
-			nATCmdID = 26;
-			SetTimer(40,1000,NULL);
-			break;
-		case 26:			
-			KillTimer(40);
-			SendAtCmd("AT+CPMS=\"ME\",\"ME\",\"ME\"",25);      //新短信通知
-			nATCmdID = 40;
-			SetTimer(40,1000,NULL);
-			break;
-		case 40:
-			KillTimer(40);
-			if(SerialPortOpenCloseFlag_3G==TRUE)m_ctrlIconOpenoff_3G.SetIcon(m_hIconRed);//避免关闭串口与点灯不同步
-			if(tel_manual_select==0)SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);//查询下CSQ。被移动到初始化最后一个定时器中
-			SetTimer(42,2000,NULL);//短信查询 在定时器42里面，2s不能少
-			nATCmdID = 0;
-			break;
-		default:
-			nATCmdID = 0;
-			break;
+			SetTimer(45,10000,NULL);//调用初始化函数
 		}
 	}
 	else if (nIDEvent == 41)
@@ -1705,7 +1726,10 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 	else if (nIDEvent == 42)
 	{
 		KillTimer(42);
-		OnClearAll();
+		if (bIsINIProcess == FALSE)
+		{
+			OnClearAll();
+		}
 		nSMSCount=0;
 		SendAtCmd("AT+CMGL=4",40);      //查询短信
 	}
@@ -1715,7 +1739,15 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 		SendAtCmd("AT+CMGR="+strSMSIndex,32);      //读取指定短信   AT+CMGR 32
 		
 	}
-	
+	else if (nIDEvent == 45)
+	{
+		KillTimer(45);
+		OnClearAll();
+		bIsINIProcess = TRUE;
+		bINIFail = TRUE;
+		nATCmdID = 1;
+		SetTimer(40,1000,NULL);	
+	}	
 	CDialog::OnTimer(nIDEvent);
 }
 
@@ -3026,7 +3058,7 @@ void CBeidouDlg::OnComm_3G()
 				UpdateData(FALSE);
 				OnButtonCall(); //先实现通话
 				PlaySound(".//Wav//Guide.wav", NULL, SND_FILENAME|SND_ASYNC);//应急电台系统，自动广播请按1，原始通话请按2,#号结束
-				SetTimer(33,15000,NULL);//15s等待时间（等待用户输入，时间包括了播放语音的时间）
+				SetTimer(31,AUTORESPONSE_TIME,NULL);//15s等待时间（等待用户输入，时间包括了播放语音的时间）
 		}
 		 else if((strtemp.Find("BEGIN")!=-1)&&(bIsCaller == TRUE))//摘机回复指令
 		 {			 //^CONN: BEGIN 通话开始	主叫录音要写在自动应答里面
@@ -3115,6 +3147,7 @@ void CBeidouDlg::OnComm_3G()
 			if (bIsNewSMS == false)
 			{
 				bIsNewSMS = TRUE;
+				KillTimer(10);
 				AfxMessageBox("新短信");
 				SetTimer(42,12000,NULL);  //短信查询在定时器42里面 				
 			} 
@@ -3150,6 +3183,15 @@ void CBeidouDlg::OnComm_3G()
 			str3 = strtemp.Mid(n+1,k-n+5);
 			this->GetDlgItem(IDC_RSSI)->SetWindowText("RSSI: "+str3);
 			UpdateData(false);
+		}
+		else if((strtemp.Find("ERROR")!=-1)&&(bIsINIProcess == TRUE))//初始化返回错误
+		{			 
+			bINIFail = FALSE;
+		}
+		else if((strtemp.Find("OK")!=-1)&&(41 == nATCmdID))
+		{
+			nATCmdID = 0;
+			bIsINIProcess = FALSE;
 		}
 		else if(strtemp.Find("CMS ERROR")!=-1) //短信错误返回
 		{			 //CMS
@@ -3227,7 +3269,7 @@ void CBeidouDlg::OnComm_3G()
 						send_string = chCollect;
 						if (send_string == "1#")
 						{	//广播请求
-							SetTimer(33,15000,NULL);//15s等待时间（等待用户输入，时间包括了播放语音的时间）
+							SetTimer(31,AUTORESPONSE_TIME,NULL);//15s等待时间（等待用户输入，时间包括了播放语音的时间）
 							nAuto = bAutoResponse(G3ID,send_string);
 						}
 						else if (send_string == "2#")
@@ -3239,7 +3281,7 @@ void CBeidouDlg::OnComm_3G()
 							else
 							{	//通话请求
 								PlaySound(".//Wav//RingConnect.wav", NULL, SND_FILENAME|SND_ASYNC);//通话正在连接中，请稍候 
-								SetTimer(34,15000,NULL);//自定义振铃等待15
+								SetTimer(32,NOPICKUP_TIME ,NULL);//自定义振铃等待15
 								//向电台人员通知来电   文件RingPlay.wav
 								//这里OnButtonCall ，再添加一个状态标志，做虚拟摘机
 								GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("虚拟摘机");
@@ -3247,7 +3289,7 @@ void CBeidouDlg::OnComm_3G()
 						}
 						else 
 						{	//ID和PASSWORD等输入
-							SetTimer(33,15000,NULL);//15s等待时间（等待用户输入，时间包括了播放语音的时间）
+							SetTimer(31,AUTORESPONSE_TIME,NULL);//15s等待时间（等待用户输入，时间包括了播放语音的时间）
 							nAuto = bAutoResponse(G3ID,send_string);
 						}
 						if(nAuto ==0)
@@ -3301,6 +3343,7 @@ SMSInfoALL CBeidouDlg::ReadSMS(char *pSrc, SMSInfoALL smsb, int nTxRxFlag)
 	{
 		strLongSMSText = pDst->TP_UD;
 		strLongSMSText += "\r\n";
+		SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);//短信读完了，再打开3G查询定时器
 	}		
 	CString strToSave;
 	char pH[1024];

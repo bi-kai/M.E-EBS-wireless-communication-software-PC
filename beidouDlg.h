@@ -110,6 +110,9 @@ public:
 	bool modulereset;//手动复位按钮的触发器.
 	bool soundswitch;//音频信号源手动切换
 	/***************3G电话**************************/
+	bool bIsINIProcess;//是否处于初始化过程中，默认为false
+	bool bINIFail;//用于标志初始化是否成功
+
 	SMSInfoALL sms;
 	CString strLongSMSText;		
 	CString strSMSIndex;//SMS在存储器中的位置
