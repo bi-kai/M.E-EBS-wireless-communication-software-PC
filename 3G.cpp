@@ -151,7 +151,7 @@ funReturn ReversePhoneNum(char *pSrc, char *pDst, int nSrcLength)
 		break;
 	default:
 		a.bToReturn = FALSE;
-		AfxMessageBox("电话号码或长度有误！");
+		AfxMessageBox("Phone Number or Length error");
 		break;
 	}
 	
@@ -488,8 +488,9 @@ int UnicodeToGB2312(const unsigned char *pSrc,char *pDst,int nLength)
 //strSMSText 发送内容
 //chForPDU PDU存储指针
 //返回TPDU的长度
-funReturn	cEncodePDU(CString strDstNum, CString strSMSText, char *chForPDU,BOOL bChineseFlag,int nTotalLenth)
+funReturn	cEncodePDU(CString strDstNum, CString strSMSText, char *chForPDU,BOOL bChineseFlag,int nLenth)
 {
+	
 	funReturn b;
 	b.bToReturn =TRUE;
 	b.nLenthToReturn =0;
@@ -568,7 +569,7 @@ funReturn	cEncodePDU(CString strDstNum, CString strSMSText, char *chForPDU,BOOL 
 	if (bChineseFlag)
 	{
 		//TP-UDL
-	char a = nTotalLenth*2;
+	char a = nLenth*2;
 	nBytes2CString((unsigned char *)&a,&chForPDU[nPos],2);//TP-UDL
 	nPos += 2;
 	nTPDUlen += 2;
@@ -584,7 +585,7 @@ funReturn	cEncodePDU(CString strDstNum, CString strSMSText, char *chForPDU,BOOL 
 	else
 	{
 //TP-UDL
-	char a = nTotalLenth;
+	char a = nLenth;
 	nBytes2CString((unsigned char *)&a,&chForPDU[nPos],2);//TP-UDL
 	nPos += 2;
 	nTPDUlen += 2;
@@ -606,7 +607,7 @@ funReturn	cEncodePDU(CString strDstNum, CString strSMSText, char *chForPDU,BOOL 
 //完整的PDU编码
 //strSrcNum 发件人号码  strDstNum 收件人号码  strSMSText 发送内容    chForPDU PDU存储指针  bChineseFlag 是否有中文字符，TRUE为有，用Unicode编码；FALSE用7bit编码
 //返回TPDU的长度
-funReturn  cEncodePDU(CString strSrcNum, CString strDstNum, CString strSMSText,char * chForPDU,BOOL bChineseFlag,int nTotalLenth)
+funReturn  cEncodePDU(CString strSrcNum, CString strDstNum, CString strSMSText,char * chForPDU,BOOL bChineseFlag,int nLenth)
 {
 	funReturn c;
 	c.bToReturn =  TRUE;
@@ -696,7 +697,7 @@ funReturn  cEncodePDU(CString strSrcNum, CString strDstNum, CString strSMSText,c
 	if (bChineseFlag)
 	{
 		//TP-UDL
-	char a = nTotalLenth*2;
+	char a = nLenth*2;
 	nBytes2CString((unsigned char *)&a,&chForPDU[nPos],2);//TP-UDL
 	nPos += 2;
 	nTPDUlen += 2;
@@ -713,7 +714,7 @@ funReturn  cEncodePDU(CString strSrcNum, CString strDstNum, CString strSMSText,c
 	else
 	{
 //TP-UDL
-	char a = nTotalLenth;
+	char a = nLenth;
 	nBytes2CString((unsigned char *)&a,&chForPDU[nPos],2);//TP-UDL
 	nPos += 2;
 	nTPDUlen += 2;
@@ -829,6 +830,7 @@ SMSInfoALL nDecodePdu(char *pSrc, SMSInfoALL smsa,int nTxRxFlag)
 					nPos += 2;
 					CString strIndex;
 					smsa.bIsLongSMS = FALSE;
+					pDst->index = 0;
 				//信息内容解码
 					for(int index=0;index<=5;index++)
 					{
@@ -1006,6 +1008,7 @@ SMSInfoALL nDecodePdu(char *pSrc, SMSInfoALL smsa,int nTxRxFlag)
 						strIndex += *(pSrc+nPos+index); 
 					}
 					smsa.bIsLongSMS = FALSE;
+					pDst->index = 0;
 				//信息内容解码
 					if(pDst->TP_DCS == CODE_7BIT)	
 					{
@@ -1072,7 +1075,7 @@ SMSInfoALL nDecodePdu(char *pSrc, SMSInfoALL smsa,int nTxRxFlag)
 								smsa.bIsLongSMS = TRUE;
 							}
 							else
-							{
+							{								
 								nDstLength = nCString2Bytes(pSrc+nPos, buf, uCharTmp * 2);			// 格式转换
 								nDstLength = nDecode8bit(buf, pDst->TP_UD, len);	// 转换到TP-DU
 							}
@@ -1128,6 +1131,8 @@ int LongSMSTextDeCode(char *pSrc, SM_PARAM *pDst,int ndecodeMode,int nLength)
 		//NN第几条
 		strSMSText += "第";
 		strSMSText += *(pSrc+nPos) + *(pSrc+nPos+1);
+		char aTemp = *(pSrc+nPos+1);
+		pDst->index = atoi(&aTemp);
 		strSMSText += "条: ";
 		nPos += 2;		
 	} 
@@ -1163,6 +1168,8 @@ int LongSMSTextDeCode(char *pSrc, SM_PARAM *pDst,int ndecodeMode,int nLength)
 		strSMSText += "第";
 		strSMSText += *(pSrc+nPos);
 		strSMSText += *(pSrc+nPos+1);
+		char aTemp = *(pSrc+nPos+1);
+		pDst->index = atoi(&aTemp);
 		strSMSText += "条: ";
 		nPos += 2;
 	}
@@ -1175,7 +1182,6 @@ int LongSMSTextDeCode(char *pSrc, SM_PARAM *pDst,int ndecodeMode,int nLength)
 			strCount num;
 			num	= Statistic(strSMSText);
 			int length = num.nChineseLenth+num.nEnglishLenth*2;
-
 			int len = nLength - (nlen+1);
 			int j = nCString2Bytes(pSrc+nPos, buf, len*2);
 				if(ndecodeMode == CODE_7BIT)	
@@ -1312,10 +1318,148 @@ void CMSError(CString str)
 			AfxMessageBox("短信长度错误");
 			break;
 		case 500:
-			AfxMessageBox("未知错误");
+			AfxMessageBox("500: 未知错误");
 			break;
 		default:
 			AfxMessageBox("未知错误");
 			break;
 	}
+}
+//长短信编码，比CEncodePDU多了个nOrder，表示第几条，其他均一致。
+funReturn cEncodeLongPDU(CString strDstNum, CString strSMSText,char * chForPDU,BOOL bChineseFlag,int nLenth,CString Order,CString TotalOrder)
+{
+	funReturn c;
+	c.bToReturn =TRUE;
+	c.nLenthToReturn =0;
+
+	char *cDstNum;
+	cDstNum = strDstNum.GetBuffer(strDstNum.GetLength()); 
+	strDstNum.ReleaseBuffer(); //dst number
+	
+	char chText[512];
+	memcpy(chText,strSMSText,strSMSText.GetLength());
+	int	len = strSMSText.GetLength() +2;
+	chText[len-2] = '\r';
+	chText[len-1] = '\n';
+	//-----------------------------
+	int nTPDUlen = 0;
+	int nPos = 0;
+//   51 基本参数(TP-MTI/VFP) 不要求发送回复 或者 31  01 11
+	chForPDU[nPos] = '5';
+	chForPDU[nPos+1] = '1';
+	nPos += 2;
+	nTPDUlen += 2;
+//00 消息基准值(TP-MR)
+	chForPDU[nPos] = '0';
+	chForPDU[nPos+1] = '0';
+	nPos += 2;
+	nTPDUlen += 2;
+//-----------------------------收件人
+//长度0D
+	chForPDU[nPos] = '0';
+	chForPDU[nPos+1] = 'D';
+	nPos += 2;
+	nTPDUlen += 2;
+//91
+	chForPDU[nPos] = '9';
+	chForPDU[nPos+1] = '1';
+	nPos += 2;
+	nTPDUlen += 2;
+//号码
+	c = ReversePhoneNum(cDstNum,&chForPDU[nPos],strDstNum.GetLength());
+	if(c.bToReturn==FALSE)
+	{
+		return c;
+	}
+	nPos += 14;
+	nTPDUlen += 14;
+//00 TP-PID
+	chForPDU[nPos] = '0';
+	chForPDU[nPos+1] = '0';
+	nPos += 2;
+	nTPDUlen += 2;
+//08 TP-DCS  Unicode编码           这里还要加个7bit编码，（8bit待定）
+	if (bChineseFlag)
+	{
+		chForPDU[nPos] = '0';
+		chForPDU[nPos+1] = '8';
+		nPos += 2;	
+		nTPDUlen += 2;
+	} 
+	else //	这里还要加个7bit编码，
+	{
+		chForPDU[nPos] = '0';
+		chForPDU[nPos+1] = '0';
+		nPos += 2;	
+		nTPDUlen += 2;
+	}
+//00  可变   A7 AA
+	chForPDU[nPos] = 'A';
+	chForPDU[nPos+1] = 'A';
+	nPos += 2;
+	nTPDUlen += 2;
+	if (bChineseFlag)
+	{
+	//--------------------------------------------
+	//TP-UDL   采用050003XXXXXX 
+	char a = nLenth*2+6;
+	nBytes2CString((unsigned char *)&a,&chForPDU[nPos],2);//TP-UDL
+	nPos += 2;
+	nTPDUlen += 2;
+	//TP-UD开始  长短信标志
+	chForPDU[nPos] = '0';
+	chForPDU[nPos+1] = '5';
+	chForPDU[nPos+2] = '0';
+	chForPDU[nPos+3] = '0';
+	chForPDU[nPos+4] = '0';
+	chForPDU[nPos+5] = '3';
+	nPos += 6;
+	nTPDUlen += 6;
+	chForPDU[nPos] = '8';
+	chForPDU[nPos+1] = '2';
+	nPos += 2;
+	nTPDUlen += 2;
+	//总条数
+	chForPDU[nPos] = '0';
+	strncpy(&chForPDU[nPos+1],(LPCTSTR)TotalOrder,1);
+	nPos += 2;
+	nTPDUlen += 2;
+	//第几条
+	chForPDU[nPos] = '0';
+//	chForPDU[nPos+1] = Order.Mid(0,1);
+	strncpy(&chForPDU[nPos+1],(LPCTSTR)Order,1);
+	nPos += 2;
+	nTPDUlen += 2;
+
+//真正的TP-UD数据
+		unsigned char buf[256];
+	//	int i = nEncodeUnicode(chText,buf,strSMSText.GetLength());
+		int i = nEncodeUnicode(chText,buf,nLenth*2);
+		int j=nBytes2CString(buf,&chForPDU[nPos],i*2);
+		nTPDUlen += i*2;
+//		PDUlength = nPos + i*2; //PDU 总长度
+		chForPDU[nPos + i*2] = 0x1a;//     ctrl+z   在函数cEncodePDU中实现
+		chForPDU[nPos + i*2+1] = '\0';
+	} 
+	else
+	{
+//TP-UDL
+	char a = nLenth;
+	nBytes2CString((unsigned char *)&a,&chForPDU[nPos],2);//TP-UDL
+	nPos += 2;
+	nTPDUlen += 2;
+//TP-UD
+		//7bit编码
+		unsigned char buf[256];
+	//	int i = nEncode7bit(chText,buf,strSMSText.GetLength());
+		int i = nEncode7bit(chText,buf,nLenth*2);
+		int j=nBytes2CString(buf,&chForPDU[nPos],i*2);
+		nTPDUlen += i*2;
+//		PDUlength = nPos + i*2; //PDU 总长度
+		chForPDU[nPos + i*2] = 0x1a;//     ctrl+z  在函数cEncodePDU中实现
+		chForPDU[nPos + i*2+1] = '\0';
+	}
+	//---------------------返回PDU
+	c.nLenthToReturn = nTPDUlen/2;
+	return c;
 }

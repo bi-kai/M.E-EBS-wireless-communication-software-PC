@@ -88,12 +88,6 @@
 #define IDC_STATIC_ST                   1078
 #define IDC_STATIC_BOARD_LED_ST         1079
 #define IDC_STATIC_BOARDCONNECT_ST      1080
-#define IDC_STATIC_BOARD_LED_ST_R       1081
-#define IDC_STATIC_BOARD_LED_3G_R       1082
-#define IDC_STATIC_BOARD_LED_WT_R       1083
-#define IDC_STATIC_BOARD_LED_3G_R1      1084
-#define IDC_STATIC_BOARD_LED_WT6        1085
-#define IDC_STATIC_BOARD_LED_BD_R       1085
 
 // Next default values for new objects
 // 

@@ -140,7 +140,6 @@ void CBeidouDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_MSCOMM1, m_comm);
 	DDX_Text(pDX, IDC_EDIT_RECEIVEMSG, m_showmsg);
 	DDX_Text(pDX, IDC_EDIT_SENDMSG, m_sendmsg);
-	DDV_MaxChars(pDX, m_sendmsg, 210);
 	DDX_Text(pDX, IDC_EDIT_CARDNUMBER, m_cardnumber);
 	DDX_Text(pDX, IDC_EDIT_CATEGORY, m_category);
 	DDX_Text(pDX, IDC_EDIT_CARDSTATES, m_cardstate);
@@ -321,6 +320,18 @@ BOOL CBeidouDlg::OnInitDialog()
 	//	 m_comm_3G.GetInput();    //先预读缓冲区以清除残留数据
 	call_in_number_3G="";
 
+	longSMSStruct.strDstNum = "";
+	longSMSStruct.strSMSText = "";
+	longSMSStruct.bChineseFlag = FALSE;
+	longSMSStruct.nTextLenth = 0;
+	longSMSStruct.nCount = 0;
+	longSMSStruct.nStrSendLoc = 0;
+	
+	for(int n=0; n<sizeof(strLongSMSTextStore)/sizeof(strLongSMSTextStore[0]); n++)
+	{
+		strLongSMSTextStore[n] = "";
+	}
+	nLongSMSSendCount = 0;
 	bIsINIProcess = FALSE;
 	nCallFlags = 0;
 	nATCmdID = 0;
@@ -934,20 +945,19 @@ void CBeidouDlg::OnButtonSendMsg()
 //		CString sendTmp="";
 	if (state_system[1]==0)//发短信时:3G可用，先用3G
 	{
-		UpdateData(TRUE);  
-		memset(chPDU,0,1024);	
+		KillTimer(10);
+		UpdateData(TRUE);  		
 		BOOL bIsSendSMS = FALSE;	
-		BOOL bChinese;
-		CString stra;
+		BOOL bChinese = FALSE;
+		CString stra = "";
+		bool bIsSendLongSMS = FALSE;
 		
 		strCount countNum;
 		countNum = Statistic(m_sendmsg);//字符统计
 		nEnglishLenth = countNum.nEnglishLenth;
 		nChineseLenth = countNum.nChineseLenth;
 		nTotalLenth = countNum.nTotalLenth;
-		int nlength = nEnglishLenth*2 + nChineseLenth;
-		stra.Format("英文字符数: %d,中文字符数: %d\r\n总共字符数: %d,占用字符数: %d"
-			,nEnglishLenth , nChineseLenth , nTotalLenth , nlength);
+		stra.Format("英文字符数: %d,中文字符数: %d\r\n总共字符数: %d",nEnglishLenth , nChineseLenth , nTotalLenth);
 		AfxMessageBox(stra);
 		if (nChineseLenth == 0)
 			bChinese = FALSE;	
@@ -956,8 +966,13 @@ void CBeidouDlg::OnButtonSendMsg()
 		
 		if (bChinese)
 		{	//判断中文字符是否超出 16bit最多字符数70个  //还得计算中英文字符的个数		
-			if((nChineseLenth+2*nEnglishLenth) <= 70 )
+			if((nChineseLenth+nEnglishLenth) <= 70 )
 				bIsSendSMS = TRUE;
+			else if (((nChineseLenth+nEnglishLenth) > 70)&&((nChineseLenth+nEnglishLenth) <= 320 ) ) //先实现3条
+			{
+				bIsSendLongSMS = TRUE;
+				nLongSMSSendCount = nTotalLenth/66 + 1;
+			}
 		} 
 		else
 		{	//判断英文字符是否超出 7bit最多字符数160个
@@ -965,23 +980,39 @@ void CBeidouDlg::OnButtonSendMsg()
 				bIsSendSMS = TRUE;
 		}
 		
-		if (bIsSendSMS == TRUE)
-		{
-			funReturn d;
-			//		d = cEncodePDU(call_in_number_3G,m_target_number,m_strSMSText,chPDU,bChinese,nTotalLenth);//发件人，收件人，内容
-			d = cEncodePDU(m_target_number,m_sendmsg,chPDU,bChinese,nTotalLenth);//00，收件人，内容  //默认是中文
-			if (d.bToReturn)
+		if ((bIsSendSMS == TRUE)||(bIsSendLongSMS == TRUE))
+		{	
+			funReturn d = {FALSE,0};//默认为FALSE,0字符
+			memset(chPDU,0,512);
+			if (bIsSendSMS == TRUE)
 			{
-				CString strTemp;
-				SendAtCmd("AT+CMGF=0",21); //PDU模式
-				strTemp.Format("%d",d.nLenthToReturn);
-				SendAtCmd("AT+CMGS="+strTemp,22);
+				//		d = cEncodePDU(m_strSendPhoneNum,m_strReceicePhoneNum,m_strSMSText,chPDU,bChinese,nTotalLenth);//发件人，收件人，内容
+				d = cEncodePDU(m_target_number,m_sendmsg,chPDU,bChinese,nTotalLenth);//00，收件人，内容  //默认是中文
+				if (d.bToReturn)
+				{
+					CString strTemp = "";
+					SendAtCmd("AT+CMGF=0",21); //PDU模式
+					strTemp.Format("%d",d.nLenthToReturn);
+					SendAtCmd("AT+CMGS="+strTemp,22);
+					nATCmdID = 23;
+					SetTimer(46,1000,NULL);
+				}
+				else
+					AfxMessageBox("短信发送不成功，请检查后重新发送!");
 			}
-			else
-				AfxMessageBox("短信发送不成功，请检查后重新发送!");
+			else if (bIsSendLongSMS == TRUE)
+			{
+				longSMSStruct.bChineseFlag = bChinese;
+				longSMSStruct.nTextLenth = nTotalLenth;
+				longSMSStruct.strDstNum = m_target_number;
+				longSMSStruct.strSMSText = m_sendmsg;
+				longSMSStruct.nCount = nLongSMSSendCount;
+				SendLongSMS(&longSMSStruct);	
+				SetTimer(48,60*1000,NULL);// 防止发短信出错，卡在等PDU数据
+			}
 		} 
 		else
-		AfxMessageBox("短信字符数过多!字符数中文输入最多70，英文输入最多160");
+		AfxMessageBox("短信字符数过多!字符数中文输入最多195，英文输入最多160");	
 	}
 	else if(state_system[3]==0){//发短信时:3G不可用，再用北斗
 		KillTimer(8);
@@ -1055,9 +1086,8 @@ void CBeidouDlg::OnButtonClear()
 {
 	// TODO: Add your control notification handler code here
 		m_showmsg="";
-		UpdateData(FALSE);
-
-	
+		strLongSMSText =  "";
+		UpdateData(FALSE);	
 }
 
 void CBeidouDlg::OnButtonSystemcheck() 
@@ -1616,7 +1646,10 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 	else if (nIDEvent==31)  
 	{
 		KillTimer(31);
-		if((flag_PW_in_busy==1)||(flag_PW_out_busy==1))OnButtonCall();//对方输入操作超时，挂机
+		this->GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
+		UpdateData(FALSE);
+		if((flag_3G_in_busy==1)||(flag_3G_out_busy==1))    //这里有问题？？？？？？？？？？？？？？？？？？？？？？？flag_3G_in_busy，flag_3G_out_busy未初始化
+			OnButtonCall();//对方输入操作超时，挂机
 	}else if (nIDEvent==32)
 	{
 		KillTimer(32);
@@ -1677,13 +1710,13 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 					nATCmdID = 25;
 					SetTimer(40,1000,NULL);
 					break;
-				case 23:       //发送短信
+		/*		case 23:       //发送短信
 					KillTimer(40);
 					strTemp = chPDU;
 					SendAtCmd(strTemp,23);
 					nATCmdID = 0;
 		//			SetTimer(40,1000,NULL);
-					break;
+					break;*/
 				case 25:			
 					KillTimer(40);
 					SendAtCmd("AT+CNMI=2,1,0,0,0",25);      //新短信通知
@@ -1721,7 +1754,9 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 		SendAtCmd("AT+CMGD="+strSMSIndex+","+"0",31);//删除短信。
 		nSMSCount--;
 		if (nSMSCount!=0)			
-			SetTimer(42,1000,NULL);				
+			SetTimer(42,1000,NULL);	
+		else
+			SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);;
 	}
 	else if (nIDEvent == 42)
 	{
@@ -1747,7 +1782,29 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 		bINIFail = TRUE;
 		nATCmdID = 1;
 		SetTimer(40,1000,NULL);	
-	}	
+	}
+	else if(nIDEvent == 46)
+	{
+		CString strTempa = "";
+		KillTimer(46);
+		strTempa = chPDU;
+		SendAtCmd(strTempa,23);
+		nATCmdID = 0;
+	}
+	else if(nIDEvent == 47)
+	{
+		KillTimer(47);
+		if (nLongSMSSendCount != 0)
+		{
+			memset(chPDU,0,512);
+			SendLongSMS(&longSMSStruct);
+		}		
+	}
+	else if(nIDEvent == 48)
+	{
+		KillTimer(48);
+		SetTimer(10,8000,NULL);		
+	}
 	CDialog::OnTimer(nIDEvent);
 }
 
@@ -2943,7 +3000,8 @@ void CBeidouDlg::OnButtonConnect_3G()
 
 //			m_ctrlIconOpenoff_3G.SetIcon(m_hIconRed);
 			UpdateData();
-			
+			bIsINIProcess = TRUE;
+			bINIFail = TRUE;
 			SendAtCmd("ATE0",2);   //回显命令 0：MS 不回送从TE 接收的字符  1：MS 回送从TE 接收的字符。
 			nATCmdID = 1;
 			SetTimer(40,1000,NULL);	
@@ -3088,11 +3146,10 @@ void CBeidouDlg::OnComm_3G()
 		 }
 		 else if(strtemp.Find("CEND")!=-1)//同上
 		 {			 // ^CEND: 000015（代号） 通话结束
-			UpdateData(TRUE);
-			GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
+			UpdateData(TRUE);			
 			 if (bIsRecord==TRUE)
 			 {	
-				OnButtonCall();				
+			//	OnButtonCall();				
 				HWND hWnd = ::FindWindow(NULL, _T("record11"));//关闭录音
 				if (NULL != hWnd) {
 					::SendMessage(hWnd, WM_CLOSE, 0, 0);
@@ -3100,10 +3157,12 @@ void CBeidouDlg::OnComm_3G()
 				bIsCaller = TRUE;  
 				bIsRecord=FALSE;
 			 }
+			 GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
 			 SetTimer(35,5000,NULL);//可能录音还未关闭，要关
 		}
 		else if(strtemp.Find("+CMGL:")!=-1)//短信查询返回内容
 		 {		
+			KillTimer(10);
 				CString stra;
 				int	n=strtemp.Find("+CMGL:");
 				int k=strtemp.Find(",");				
@@ -3121,7 +3180,9 @@ void CBeidouDlg::OnComm_3G()
 					strtemp.Delete(n,15);
 				}
 				if (strtemp.Find("OK")!=-1)
-					SetTimer(43,1000,NULL);				
+					SetTimer(43,1000,NULL);	
+				else
+					SetTimer(43,5000,NULL); //防止5条新短信的到来
 		 }
 		else if(strtemp.Find("+CMGR:")!=-1)//读取短信命令
 		 {
@@ -3140,22 +3201,22 @@ void CBeidouDlg::OnComm_3G()
 					n=atoi(str2);
 					char *pSrc = (LPSTR)(LPCTSTR)stra;					
 					sms = ReadSMS(pSrc,sms,n);					
-					SetTimer(41,500,NULL);//删除短信在定时器41里 ,再次查询在42里面
+					SetTimer(41,1000,NULL);//删除短信在定时器41里 ,再次查询在42里面
 				}
 		 }
 		else if(strtemp.Find("+CMTI:")!=-1)//新短信
 		{
+			KillTimer(10);
 			if (bIsNewSMS == false)
 			{
-				bIsNewSMS = TRUE;
-				KillTimer(10);
+				bIsNewSMS = TRUE;				
 				AfxMessageBox("新短信");
 				SetTimer(42,12000,NULL);  //短信查询在定时器42里面 				
 			} 
 		}
 		else if(strtemp.Find(">")!=-1) //发送短信：PDU数据的发送在定时器41里面
 		{
-			SetTimer(40,1000,NULL);
+		//	SetTimer(40,1000,NULL);
 			nATCmdID = 23;			
 		}	
 		else if(strtemp.Find("CLIP")!=-1)
@@ -3181,8 +3242,29 @@ void CBeidouDlg::OnComm_3G()
 			CString str3;
 			int	n=strtemp.FindOneOf(":");
 			int	k=strtemp.FindOneOf(",");
-			str3 = strtemp.Mid(n+1,k-n+5);
-			this->GetDlgItem(IDC_RSSI)->SetWindowText("RSSI: "+str3);
+			str3 = strtemp.Mid(n+2,k-(n+2));
+			int j = 0;
+			j = atoi(str3);
+			if ((j<=8)&&(j>0))
+			{
+				this->GetDlgItem(IDC_RSSI)->SetWindowText("信号强度: 差");
+			} 
+			else if ((j>=9)&&(j<=14))
+			{
+				this->GetDlgItem(IDC_RSSI)->SetWindowText("信号强度: 中");
+			}
+			else
+			{
+				if (strtemp.Find("99,")!=-1)
+				{
+					this->GetDlgItem(IDC_RSSI)->SetWindowText("信号未知");
+				}
+				else
+				{
+					this->GetDlgItem(IDC_RSSI)->SetWindowText("信号强度: 好");
+				}
+			}
+		//	str3 = strtemp.Mid(k-2,5);
 			UpdateData(false);
 		}
 		else if((strtemp.Find("ERROR")!=-1)&&(bIsINIProcess == TRUE))//初始化返回错误
@@ -3200,6 +3282,7 @@ void CBeidouDlg::OnComm_3G()
 			int	n=strtemp.FindOneOf("CMS ERROR");
 			str4 = strtemp.Mid(n,14);
 			GetDlgItem(IDC_CMSERROR)->SetWindowText(str4);
+			UpdateData(false);
 			//取数字，然后进行相应的取值操作
 			if (strtemp.Find("3")!=-1)
 			{
@@ -3224,7 +3307,7 @@ void CBeidouDlg::OnComm_3G()
 			str = "收件人:";
 			str += m_target_number;
 			str += "\r\n";
-			char pSrc[256]; 
+			char pSrc[1024]; 
 			strncpy(pSrc,(LPCTSTR)str,str.GetLength());
 			CFile m_File;
 			m_File.Open(".//SendSMS.txt",CFile::modeCreate|CFile::modeReadWrite|CFile::modeNoTruncate|CFile::typeBinary|CFile::shareDenyNone,NULL);  
@@ -3244,7 +3327,14 @@ void CBeidouDlg::OnComm_3G()
 			m_File.Write(pSrc,sizeof(char)*str.GetLength());
 			m_File.Flush();
 			m_File.Close();
-			AfxMessageBox("短信发送成功");
+			if (nLongSMSSendCount == 0)
+			{
+				AfxMessageBox("短信发送成功");
+			} 
+			else
+			{
+				SetTimer(47,100,NULL);
+			}
 		}
 		else if(strtemp.Find("+RXDTMF:")!=-1) //传号
 		{			 //传号显示	 +RXDTMF: 1  			
@@ -3333,11 +3423,19 @@ SMSInfoALL CBeidouDlg::ReadSMS(char *pSrc, SMSInfoALL smsb, int nTxRxFlag)
 //		this->GetDlgItem(IDC_TIME)->SetWindowText("");
 //		this->GetDlgItem(IDC_TIME)->EnableWindow(FALSE);
 	}
-	m_target_number = pDst->SCA;
+//	m_target_number = pDst->SCA;
+	m_target_number = pDst->TPA;
 	call_in_number_3G = pDst->TPA;
 	if (smsb.bIsLongSMS)
 	{
-		strLongSMSText += pDst->TP_UD;
+		strLongSMSText = "";
+		strLongSMSTextStore[pDst->index - 1] = pDst->TP_UD;//从第一条开始，这里从0开始存
+	//	strLongSMSText += pDst->TP_UD;
+		strLongSMSText +=	 "\r\n";
+		for (int i=0;i<=9;i++)
+		{
+			strLongSMSText += strLongSMSTextStore[i];
+		}
 		strLongSMSText +=	 "\r\n";
 	} 
 	else
@@ -3412,5 +3510,76 @@ void CBeidouDlg::OnSelendokComboTelManualSelect()
 		state_system[1]=1;
 		state_system[2]=0;
 
+	}
+}
+
+void CBeidouDlg::SendLongSMS(strLongSMS  *structUse)
+{
+	int nChNum = 0;
+	int nTotalNum = 0;
+	char ch;	
+	int n=0;
+	n=structUse->nCount;
+	n -= nLongSMSSendCount;
+	CString strPart = "";//用于截取字符串
+	CString order ="";
+	CString totalOrder = "";
+	funReturn d = {FALSE,0};//默认为FALSE,0字符
+	order.Format("%d",n+1);
+	totalOrder.Format("%d",structUse->nCount);//最多为9， 长短信一般最长为5
+	if (1==nLongSMSSendCount)
+	{
+		strPart = m_sendmsg.Mid(structUse->nStrSendLoc,m_sendmsg.GetLength()-nTotalNum);
+		strCount countNum = Statistic(strPart);//字符统计
+		nLongSMSSendCount --;
+		d = cEncodeLongPDU(structUse->strDstNum,strPart,chPDU,structUse->bChineseFlag,countNum.nTotalLenth,order,totalOrder);//收件人，内容  //默认是中文
+		if (d.bToReturn)
+		{
+			CString strTempc = "";
+			SendAtCmd("AT+CMGF=0",21); //PDU模式
+			strTempc.Format("%d",d.nLenthToReturn);
+			SendAtCmd("AT+CMGS="+strTempc,22);
+			nATCmdID = 23;
+			SetTimer(46,1000,NULL);
+			SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);
+		}
+		else
+			AfxMessageBox("短信发送不成功，请检查后重新发送!");
+	}
+	else
+	{
+		while ((nChNum<=65) && (nLongSMSSendCount != 1))
+		{
+			ch = m_sendmsg.GetAt(structUse->nStrSendLoc + nTotalNum);
+			if(ch<0||ch>255)
+			{
+				nChNum++;
+				nTotalNum+=2;
+			}
+			else 
+			{
+				nChNum++;
+				nTotalNum++;
+			}
+		}
+		strPart = m_sendmsg.Mid(structUse->nStrSendLoc,nTotalNum);							
+		structUse->nStrSendLoc += nTotalNum;
+		strCount countNum = {2*nChNum-nTotalNum,nTotalNum-nChNum,nChNum};
+	//	strCount countNum = Statistic(strPart);//字符统计
+		nLongSMSSendCount --;
+		//	d = cEncodeLongPDU(structUse.strDstNum,strPart,chPDU,structUse.bChineseFlag,countNum.nTotalLenth,order,totalOrder);//收件人，内容  //默认是中文
+		d = cEncodeLongPDU(structUse->strDstNum,strPart,chPDU,structUse->bChineseFlag,65,order,totalOrder);//收件人，内容  //默认是中文
+		if (d.bToReturn)
+		{
+			CString strTempd = "";
+			SendAtCmd("AT+CMGF=0",21); //PDU模式
+			strTempd.Format("%d",d.nLenthToReturn);
+			SendAtCmd("AT+CMGS="+strTempd,22);
+			nATCmdID = 23;
+			SetTimer(46,1000,NULL);
+			//定时器47在串口发送成功里面
+		}
+		else
+			AfxMessageBox("短信发送不成功，请检查后重新发送!");
 	}
 }

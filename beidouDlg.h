@@ -110,6 +110,10 @@ public:
 	bool modulereset;//手动复位按钮的触发器.
 	bool soundswitch;//音频信号源手动切换
 	/***************3G电话**************************/
+	CString strLongSMSTextStore[10];
+	strLongSMS  longSMSStruct;
+	void SendLongSMS(strLongSMS  *structUse);
+	int nLongSMSSendCount;//要发送长短信的总共条数，默认为0，先最多设为3条，进一步扩展为5条
 	bool bIsINIProcess;//是否处于初始化过程中，默认为false
 	bool bINIFail;//用于标志初始化是否成功
 
@@ -123,7 +127,7 @@ public:
     int nTotalLenth;//总共字符数		
 	char chCollect[16];//用于存放传号数据
 	int nCount;//用于搜集传号的，index	
-	char chPDU[1024];//用于存放PDU数据
+	char chPDU[512];//用于存放PDU数据
 	char cReceiveData[2048];//用于存放接收数据	
 	int nATCmdID;//AT指令的ID，用于串口响应 默认为0， 分三段：1,1~10，初始化，2、11~20通话，3、21~30
 	int nCallFlags;//用于标志call的状态，默认为0，拨号为1，接听为2，挂机为3
