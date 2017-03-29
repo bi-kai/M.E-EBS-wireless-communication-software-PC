@@ -47,7 +47,7 @@ CBeidouApp theApp;
 BOOL CBeidouApp::InitInstance()
 {
 	AfxEnableControlContainer();
-	skinppLoadSkin(_T("Vista.ssk"));//Vista.ssk为项目下的皮肤文件
+	skinppLoadSkin(_T("spring.ssk"));//Vista.ssk为项目下的皮肤文件
 
 	// Standard initialization
 	// If you are not using these features and wish to reduce the size

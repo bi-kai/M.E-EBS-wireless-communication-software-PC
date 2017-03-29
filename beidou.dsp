@@ -96,10 +96,6 @@ SOURCE=.\3G.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=.\autoResponse.cpp
-# End Source File
-# Begin Source File
-
 SOURCE=.\beidou.cpp
 # End Source File
 # Begin Source File
@@ -116,8 +112,16 @@ SOURCE=.\mscomm.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\SerialPort.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\StdAfx.cpp
 # ADD CPP /Yc"stdafx.h"
+# End Source File
+# Begin Source File
+
+SOURCE=.\tts.cpp
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -126,10 +130,6 @@ SOURCE=.\StdAfx.cpp
 # Begin Source File
 
 SOURCE=.\3G.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\autoResponse.h
 # End Source File
 # Begin Source File
 
@@ -149,11 +149,19 @@ SOURCE=.\Resource.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\SerialPort.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\SkinPPWTL.h
 # End Source File
 # Begin Source File
 
 SOURCE=.\StdAfx.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tts.h
 # End Source File
 # End Group
 # Begin Group "Resource Files"
@@ -182,12 +190,12 @@ SOURCE=.\ReadMe.txt
 # End Source File
 # End Target
 # End Project
-# Section beidou : {648A5600-2C6E-101B-82B6-000000000014}
-# 	2:21:DefaultSinkHeaderFile:mscomm.h
-# 	2:16:DefaultSinkClass:CMSComm
-# End Section
 # Section beidou : {E6E17E90-DF38-11CF-8E74-00A0C90F26F8}
 # 	2:5:Class:CMSComm
 # 	2:10:HeaderFile:mscomm.h
 # 	2:8:ImplFile:mscomm.cpp
+# End Section
+# Section beidou : {648A5600-2C6E-101B-82B6-000000000014}
+# 	2:21:DefaultSinkHeaderFile:mscomm.h
+# 	2:16:DefaultSinkClass:CMSComm
 # End Section

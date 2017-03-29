@@ -22,6 +22,8 @@ typedef struct {
 	int nToReturn;		//要返回的整数值
 	bool bIsLongSMS;	//是否为长短信
 	int nLongSMSCount;	//长短信的位置
+	CString strLongSMSID;//长短信ID
+	int nSMSTotalNum; //返回长短信总的条数
 }SMSInfoALL; 
 
 typedef struct {
@@ -42,7 +44,14 @@ typedef struct {
 	int nTextLenth;
 	int nCount;//总共条数
 	int nStrSendLoc; //the begin of string location to send one SMS
+	int nLongSMSID; //the unique identifiers
 }strLongSMS; 
+
+typedef struct {
+	int ntoreturn;//要返回的整数值
+	CString strID;//返回长短信的ID
+	int nAllNum; //返回长短信总的条数
+}LSMSRETURN;
 
 strCount Statistic(CString str); //统计字符函数
 
@@ -62,9 +71,9 @@ int UnicodeToGB2312(const unsigned char *pSrc,char *pDst,int nLength);
 funReturn cEncodePDU(CString strDstNum, CString strSMSText,char * chForPDU,BOOL bChineseFlag,int nLenth);
 funReturn cEncodePDU(CString strSrcNum,CString strDstNum,CString strSMSText,char * chForPDU,BOOL bChineseFlag,int Lenth);
 SMSInfoALL nDecodePdu(char *pSrc, SMSInfoALL smsa,int nTxRxFlag);
-int  LongSMSTextDeCode(char *pSrc, SM_PARAM *pDst,int ndecodeMode,int nLength);
+LSMSRETURN  LongSMSTextDeCode(char *pSrc, SM_PARAM *pDst,int ndecodeMode,int nLength);
 
 void CMSError(CString str);
-funReturn cEncodeLongPDU(CString strDstNum, CString strSMSText,char * chForPDU,BOOL bChineseFlag,int nLenth,CString nOrder,CString TotalOrder);
+funReturn cEncodeLongPDU(CString strDstNum, CString strSMSText,char * chForPDU,BOOL bChineseFlag,int nLenth,CString nOrder,CString TotalOrder,int nID);
 
 #endif

@@ -33,7 +33,7 @@
 #define IDC_BUTTON_SEND4                1028
 #define IDC_BUTTON_SET                  1028
 #define IDC_BUTTON_CLEAR                1029
-#define IDC_BUTTON_SYSTEMCHECK          1030
+#define IDC_GPS                         1030
 #define IDC_BUTTON_ICCHECK              1031
 #define IDC_BUTTON3_POWERCHECK          1032
 #define IDC_PROGRESS1                   1033
@@ -84,10 +84,26 @@
 #define IDC_MSCOMM_3G                   1074
 #define IDC_RSSI                        1075
 #define IDC_CMSERROR                    1076
+#define IDC_ST_RSSI                     1076
 #define IDC_BUTTON_CONNECTST            1077
 #define IDC_STATIC_ST                   1078
 #define IDC_STATIC_BOARD_LED_ST         1079
 #define IDC_STATIC_BOARDCONNECT_ST      1080
+#define IDC_STATIC_WT_R                 1081
+#define IDC_STATIC_3G_P_R               1082
+#define IDC_STATIC_ST_R                 1083
+#define IDC_STATIC_3G_M_R               1084
+#define IDC_STATIC_BD_R                 1085
+#define IDC_COMBO_TEL_MANUAL_SELECT2    1086
+#define IDC_COMBO_MSG_MANUAL_SELECT     1086
+#define IDC_CSQ_WT                      1087
+#define IDC_GPS3                        1088
+#define IDC_POSITION                    1088
+#define IDC_123                         1089
+#define IDC_STATIC_temp                 1090
+#define IDC_STATIC_temperature          1090
+#define IDC_ST_RSSI2                    1091
+#define IDC_ST_POSITION                 1091
 
 // Next default values for new objects
 // 
@@ -95,7 +111,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        132
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         1077
+#define _APS_NEXT_CONTROL_VALUE         1091
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

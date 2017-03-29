@@ -1,6 +1,5 @@
 // beidouDlg.cpp : implementation file
 //
-
 #include "stdafx.h"
 #include "beidou.h"
 #include "beidouDlg.h"
@@ -10,8 +9,7 @@
 #include <windows.h>
 #include <mmsystem.h>
 #pragma comment(lib,"WINMM.LIB")
-#include "autoResponse.h"
-
+#include "time.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -27,8 +25,8 @@ TIMER4,5 有线电话
 TIMER6,7 运维
 TIMER8,9 北斗
 TIMER10,11 3G
-TIMER12,13 卫星电话
-
+TIMER20,21,22 卫星电话
+TIMER14 定期检查反馈信息的文本长度，超出时清屏
 TIMER33,34 自动应答
 */
 /*************北斗******************************/
@@ -48,6 +46,7 @@ unsigned char frame_board_reset_YW[8+2]={'$','r','s','e','_'};//运维复位帧
 unsigned char frame_board_sound_YW[8+2]={'$','s','w','h','_'};//运维切换音频开关申请帧
 unsigned char frame_board_connect_YW[7+2]={'$','p','p','p','_'};//运维上位机两个软件相互查询帧
 unsigned char frame_board_scan_YW[7+2]={'$','s','c','a','_'};//运维频谱扫描，继电器控制帧
+unsigned char frame_board_ppp[8+2]={'$','p','p','p','_'};//运维打开/关闭广播申请帧帧
 /////////////////////////////////////////////////////////////////////////////
 // CAboutDlg dialog used for App About
 
@@ -108,6 +107,7 @@ CBeidouDlg::CBeidouDlg(CWnd* pParent /*=NULL*/)
 	m_basestate = _T("");
 	m_FKXX = _T("");
 	m_target_number = _T("");
+	m_temperature = _T("");
 	//}}AFX_DATA_INIT
 	// Note that LoadIcon does not require a subsequent DestroyIcon in Win32
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
@@ -119,6 +119,15 @@ void CBeidouDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
 	//{{AFX_DATA_MAP(CBeidouDlg)
+	DDX_Control(pDX, IDC_STATIC_BOARD_LED_ST, m_board_led_ST);
+	DDX_Control(pDX, IDC_STATIC_ST, m_ctrlIconOpenoff_ST);
+	DDX_Control(pDX, IDC_COMBO_COMSELECT_ST, m_Com_ST);
+	DDX_Control(pDX, IDC_COMBO_MSG_MANUAL_SELECT, m_msg_manual_select);
+	DDX_Control(pDX, IDC_STATIC_3G_M_R, m_3g_m_r);
+	DDX_Control(pDX, IDC_STATIC_3G_P_R, m_3g_p_r);
+	DDX_Control(pDX, IDC_STATIC_BD_R, m_bd_r);
+	DDX_Control(pDX, IDC_STATIC_ST_R, m_st_r);
+	DDX_Control(pDX, IDC_STATIC_WT_R, m_wt_r);
 	DDX_Control(pDX, IDC_COMBO_TEL_MANUAL_SELECT, m_tel_manual_select);
 	DDX_Control(pDX, IDC_STATIC_BOARD_LED_3G, m_board_led_3G);
 	DDX_Control(pDX, IDC_STATIC_3G, m_ctrlIconOpenoff_3G);
@@ -149,6 +158,7 @@ void CBeidouDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_MSCOMM_WT, m_comm_WT);
 	DDX_Control(pDX, IDC_MSCOMM_YW, m_comm_YW);
 	DDX_Control(pDX, IDC_MSCOMM_3G, m_comm_3G);
+	DDX_Text(pDX, IDC_STATIC_temperature, m_temperature);
 	//}}AFX_DATA_MAP
 }
 
@@ -161,7 +171,6 @@ BEGIN_MESSAGE_MAP(CBeidouDlg, CDialog)
 	ON_CBN_SELENDOK(IDC_COMBO_COMSELECT, OnSelendokComboComselect)
 	ON_BN_CLICKED(IDC_BUTTON_SEND, OnButtonSendMsg)
 	ON_BN_CLICKED(IDC_BUTTON_CLEAR, OnButtonClear)
-	ON_BN_CLICKED(IDC_BUTTON_SYSTEMCHECK, OnButtonSystemcheck)
 	ON_BN_CLICKED(IDC_BUTTON_ICCHECK, OnButtonIccheck)
 	ON_BN_CLICKED(IDC_BUTTON3_POWERCHECK, OnButton3Powercheck)
 	ON_WM_TIMER()
@@ -198,6 +207,14 @@ BEGIN_MESSAGE_MAP(CBeidouDlg, CDialog)
 	ON_BN_CLICKED(IDC_BUTTON_CONNECT3G, OnButtonConnect_3G)
 	ON_CBN_SELENDOK(IDC_COMBO_COMSELECT_3G, OnSelendokComboComselect3G)
 	ON_CBN_SELENDOK(IDC_COMBO_TEL_MANUAL_SELECT, OnSelendokComboTelManualSelect)
+	ON_CBN_SELENDOK(IDC_COMBO_MSG_MANUAL_SELECT, OnSelendokComboMsgManualSelect)
+	ON_BN_CLICKED(IDC_123, On123)
+	ON_BN_CLICKED(IDC_BUTTON_CONNECTST, OnButtonConnect_ST)
+	ON_CBN_SELENDOK(IDC_COMBO_COMSELECT_ST, OnSelendokComboComselect_ST)
+	ON_MESSAGE(WM_COMM_RXCHAR, OnCommunication)
+	ON_BN_CLICKED(IDC_GPS, OnGPS)
+	ON_BN_CLICKED(IDC_CSQ_WT, On_CSQ_ST)
+	ON_BN_CLICKED(IDC_POSITION, On_Position_ST)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -232,6 +249,8 @@ BOOL CBeidouDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// Set small icon
 	
 	// TODO: Add extra initialization here
+	bIsTTSPlay = FALSE;
+
 	m_DCom=1;
 	m_DStopbits=1;
 	m_DParity='N';
@@ -243,17 +262,18 @@ BOOL CBeidouDlg::OnInitDialog()
 	SerialPortOpenCloseFlag_YW=0;
 	modulereset=FALSE;
 	soundswitch=FALSE;
-	for (int i=0;i<4;i++)
+	broad_prepare=0;
+	for (int i=0;i<(sizeof(state_system)/sizeof(state_system[0]));i++)//间接获取数组长度，增加健壮性
 	{
 		state_system[i]=1;//初始化时，默认全部不可用。系统功能模块可用状态标志位。
 	}
-	tel_manual_select=0;
+	tel_manual_select=0;//初始化
+	msg_manual_select=0;//初始化
 
 	m_hIconRed  = AfxGetApp()->LoadIcon(IDI_ICON_RED);
 	m_hIconOff	= AfxGetApp()->LoadIcon(IDI_ICON_OFF);
 	GetDlgItem(IDC_COMBO_STOPBITS2)->SetWindowText(_T("代码"));
 
-	GetDlgItem(IDC_BUTTON_SYSTEMCHECK)->EnableWindow(FALSE);
 	GetDlgItem(IDC_BUTTON_ICCHECK)->EnableWindow(FALSE);
 	GetDlgItem(IDC_BUTTON3_POWERCHECK)->EnableWindow(FALSE);
 //	GetDlgItem(IDC_BUTTON_SEND)->EnableWindow(FALSE);
@@ -291,6 +311,7 @@ BOOL CBeidouDlg::OnInitDialog()
 	m_comm.SetRThreshold(1); //参数1表示每当串口接收缓冲区中有多于或等于1个字符时将引发一个接收数据的OnComm事件
 	m_comm.SetInputLen(0); //设置当前接收区数据长度为0
 	//	 m_comm.GetInput();    //先预读缓冲区以清除残留数据
+	flag_bd_is_busy=0;//初始化
 /********************2、有线电话串口配置***********************************/	
 	m_comm_WT.SetCommPort(2); //选择com2
 	m_comm_WT.SetInputMode(1); //输入方式为二进制方式
@@ -300,6 +321,9 @@ BOOL CBeidouDlg::OnInitDialog()
 	m_comm_WT.SetRThreshold(1); //参数1表示每当串口接收缓冲区中有多于或等于1个字符时将引发一个接收数据的OnComm事件
 	m_comm_WT.SetInputLen(0); //设置当前接收区数据长度为0
 	//	 m_comm_WT.GetInput();    //先预读缓冲区以清除残留数据
+	GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);//~1~
+
+	send_string="";//传号字符串清空，准备接收传号
 /********************3、运维串口配置***********************************/	
 	m_comm_YW.SetCommPort(3); //选择com3
 	m_comm_YW.SetInputMode(1); //输入方式为二进制方式
@@ -319,18 +343,26 @@ BOOL CBeidouDlg::OnInitDialog()
 	m_comm_3G.SetInputLen(0); //设置当前接收区数据长度为0
 	//	 m_comm_3G.GetInput();    //先预读缓冲区以清除残留数据
 	call_in_number_3G="";
-
-	longSMSStruct.strDstNum = "";
-	longSMSStruct.strSMSText = "";
-	longSMSStruct.bChineseFlag = FALSE;
-	longSMSStruct.nTextLenth = 0;
-	longSMSStruct.nCount = 0;
-	longSMSStruct.nStrSendLoc = 0;
+	flag_3G_in_busy=0;
+	flag_3G_out_busy=0;
+	bReadsmsTimeFlag = FALSE;
+	bTimer48OnOff = FALSE;
+	ChuanHaoID = "";
+	bIsAutoResponseProcess = FALSE;
+	strForTTS = "";
+	bRoughLongSMS = FALSE;
+	strShortSMSIndex = "";
+	bRadioIsReady = FALSE;
+	nCountCheck = 0;
 	
-	for(int n=0; n<sizeof(strLongSMSTextStore)/sizeof(strLongSMSTextStore[0]); n++)
+	for(int t=0; t<SMSSIZE_10; t++)
 	{
-		strLongSMSTextStore[n] = "";
-	}
+		SMSIndex[t] = "";
+		strLongSMSTextStore[t] = "";
+		strLongSMSIDStore[t] = "";
+	}	
+	longSMSStructINI();
+	
 	nLongSMSSendCount = 0;
 	bIsINIProcess = FALSE;
 	nCallFlags = 0;
@@ -340,15 +372,25 @@ BOOL CBeidouDlg::OnInitDialog()
 	nTotalLenth = 0;
 	bIsCaller = TRUE;
 	bIsRecord = 0;
-	nCount = 0;
 	nSMSCount = 0;
 	strSMSIndex = "";
 	strLongSMSText = "";
 	bIsNewSMS = FALSE;
 	sms.bIsLongSMS = false;
-	memset(chCollect,0,16);
 	memset(cReceiveData,0,2048);
 	memset(chPDU,0,1024);
+	/******************5、卫星电话串口***************************/
+	flag_ST_in_busy=0;
+	flag_ST_out_busy=0;
+	
+
+	bIsRecording = FALSE;
+	nATCmdFlags = 0;
+	bISCallProcess_WX = FALSE;
+	bISCaller_WX = TRUE; 
+	BISInitial_WX = FALSE;
+	BINIfail_WX = FALSE;
+	strdata = "";
 /**********************************************************************/
 	for(int j=0;j<received_frame_size;j++){
 		frame_flag[j]=0;//没有帧等待处理
@@ -388,19 +430,21 @@ BOOL CBeidouDlg::OnInitDialog()
 	if(!ifFind)
 	{
 		/**********串口配置**********************/
-		::WritePrivateProfileString("ConfigInfo","com","0",".\\config_phonemessage.ini");//串口配置选项组
+		::WritePrivateProfileString("ConfigInfo","com","4",".\\config_phonemessage.ini");//串口配置选项组
 		::WritePrivateProfileString("ConfigInfo","com_WT","1",".\\config_phonemessage.ini");//串口配置选项组
 		::WritePrivateProfileString("ConfigInfo","com_YW","2",".\\config_phonemessage.ini");//串口配置选项组
 		::WritePrivateProfileString("ConfigInfo","com_3G","3",".\\config_phonemessage.ini");//串口配置选项组
+		::WritePrivateProfileString("ConfigInfo","com_ST","0",".\\config_phonemessage.ini");//串口配置选项组
 // 		::WritePrivateProfileString("ConfigInfo","parity","0",".\\config_phonemessage.ini");
 // 		::WritePrivateProfileString("ConfigInfo","databits","0",".\\config_phonemessage.ini");
 // 		::WritePrivateProfileString("ConfigInfo","speed","5",".\\config_phonemessage.ini");
 // 		::WritePrivateProfileString("ConfigInfo","stopbits","0",".\\config_phonemessage.ini");
 		
-		::WritePrivateProfileString("ConfigInfo","com_r","1",".\\config_phonemessage.ini");//串口配置数值组
+		::WritePrivateProfileString("ConfigInfo","com_r","5",".\\config_phonemessage.ini");//串口配置数值组
 		::WritePrivateProfileString("ConfigInfo","com_r_WT","2",".\\config_phonemessage.ini");//串口配置选项组
 		::WritePrivateProfileString("ConfigInfo","com_r_YW","3",".\\config_phonemessage.ini");//串口配置选项组
 		::WritePrivateProfileString("ConfigInfo","com_r_3G","4",".\\config_phonemessage.ini");//串口配置选项组
+		::WritePrivateProfileString("ConfigInfo","com_r_ST","1",".\\config_phonemessage.ini");//串口配置选项组
 // 		::WritePrivateProfileString("ConfigInfo","parity_r","N",".\\config_phonemessage.ini");
 // 		::WritePrivateProfileString("ConfigInfo","databits_r","8",".\\config_phonemessage.ini");
 // 		::WritePrivateProfileString("ConfigInfo","speed_r","115200",".\\config_phonemessage.ini");
@@ -410,7 +454,7 @@ BOOL CBeidouDlg::OnInitDialog()
 	/**********串口配置**********************/
 	CString strBufferReadConfig,strtmpReadConfig;
 
-	GetPrivateProfileString("ConfigInfo","com_r","1",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	GetPrivateProfileString("ConfigInfo","com_r","5",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
 	strBufferReadConfig.ReleaseBuffer();
 	strtmpReadConfig+=","+strBufferReadConfig;
 	m_DCom= (int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig);
@@ -429,6 +473,12 @@ BOOL CBeidouDlg::OnInitDialog()
 	strBufferReadConfig.ReleaseBuffer();
 	strtmpReadConfig+=","+strBufferReadConfig;
 	m_DCom_3G= (int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig);
+
+	GetPrivateProfileString("ConfigInfo","com_r_ST","1",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	strBufferReadConfig.ReleaseBuffer();
+	strtmpReadConfig+=","+strBufferReadConfig;
+	m_DCom_ST= (int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig);
+	
 	
 // 	GetPrivateProfileString("ConfigInfo","parity_r","N",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
 // 	strBufferReadConfig.ReleaseBuffer();
@@ -451,7 +501,7 @@ BOOL CBeidouDlg::OnInitDialog()
 // 	m_DStopbits= (int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig);
 	
 	///////////////////////////////////////////////////////////////////////////
-	GetPrivateProfileString("ConfigInfo","com","0",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	GetPrivateProfileString("ConfigInfo","com","4",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
 	strBufferReadConfig.ReleaseBuffer();
 	strtmpReadConfig+=","+strBufferReadConfig;
 	((CComboBox*)GetDlgItem(IDC_COMBO_COMSELECT))->SetCurSel((int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig));//设置第n行内容为显示的内容。
@@ -470,6 +520,16 @@ BOOL CBeidouDlg::OnInitDialog()
 	strBufferReadConfig.ReleaseBuffer();
 	strtmpReadConfig+=","+strBufferReadConfig;
 	((CComboBox*)GetDlgItem(IDC_COMBO_COMSELECT_3G))->SetCurSel((int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig));//设置第n行内容为显示的内容。
+
+	GetPrivateProfileString("ConfigInfo","com_ST","0",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
+	strBufferReadConfig.ReleaseBuffer();
+	strtmpReadConfig+=","+strBufferReadConfig;
+	((CComboBox*)GetDlgItem(IDC_COMBO_COMSELECT_ST))->SetCurSel((int)atof((char *)(LPTSTR)(LPCTSTR)strBufferReadConfig));//设置第n行内容为显示的内容。
+
+	//电话、短信选路模式
+	((CComboBox*)GetDlgItem(IDC_COMBO_TEL_MANUAL_SELECT))->SetCurSel(0);
+	((CComboBox*)GetDlgItem(IDC_COMBO_MSG_MANUAL_SELECT))->SetCurSel(0);
+	tel_mode_saved=0;
 
 // 	GetPrivateProfileString("ConfigInfo","parity","0",strBufferReadConfig.GetBuffer(MAX_PATH),MAX_PATH,".\\config_phonemessage.ini");
 // 	strBufferReadConfig.ReleaseBuffer();
@@ -506,6 +566,9 @@ BOOL CBeidouDlg::OnInitDialog()
 	SerialPortOpenCloseFlag_WT=FALSE;//默认关闭有线电话的串口
 	SerialPortOpenCloseFlag_YW=FALSE;//默认关闭运维的串口
 	SerialPortOpenCloseFlag_3G=FALSE;//默认关闭3G电话的串口
+	SerialPortOpenCloseFlag_ST=FALSE;//默认关闭卫星电话的串口
+
+	SetTimer(12,5000,NULL);//定期截断反馈信息编辑框中的内容
 	
 	return TRUE;  // return TRUE  unless you set the focus to a control
 	}
@@ -581,7 +644,7 @@ void CBeidouDlg::OnComm1()
 
 	if((m_comm.GetCommEvent()==2)) //事件值为2表示接收缓冲区内有字符
 	{	
-//		Sleep(100);//一帧较长，为避免接收半帧就触发响应函数，造成未收完的判断而添加大量保护代码。
+		Sleep(100);//一帧较长，为避免接收半帧就触发响应函数，造成未收完的判断而添加大量保护代码。
 		//此处可用一种变通的方式，方法一，在触发事件时，延迟一下再读数据，保证每帧都是完整的。I'm very smart，哈哈
 		//方法二：下面的多帧缓冲区方式，不管几帧来，都能收下，并以$区分开存储，收完完整一帧再处理，这种方法保证不会漏帧
 
@@ -642,7 +705,7 @@ void CBeidouDlg::OnComm1()
 			
 		}//本次缓冲区中的内容全部取出，并存储起来
 
-		if (framelen==(frame_receive[frame_index][5]*256+frame_receive[frame_index][6]))//对本次接收的缓冲帧的最后一条（只有一条或多条中的最后一条），如果接收完毕，进行处理
+		if (framelen==(unsigned char)(frame_receive[frame_index][5]*256+frame_receive[frame_index][6]))//对本次接收的缓冲帧的最后一条（只有一条或多条中的最后一条），如果接收完毕，进行处理
 		{
 			//帧接收完成
 // 			CString buf;
@@ -712,7 +775,6 @@ void CBeidouDlg::OnOpencloseport()
 			m_StatBar->SetText("北斗：串口已连接",3,0);
 			GetDlgItem(IDC_BUTTON_ICCHECK)->EnableWindow(TRUE);
 //			GetDlgItem(IDC_BUTTON_CLEAR)->EnableWindow(TRUE);
-			GetDlgItem(IDC_BUTTON_SYSTEMCHECK)->EnableWindow(TRUE);
 //			GetDlgItem(IDC_BUTTON_SEND)->EnableWindow(TRUE);
 			GetDlgItem(IDC_BUTTON3_POWERCHECK)->EnableWindow(TRUE);
 			
@@ -743,11 +805,11 @@ void CBeidouDlg::OnOpencloseport()
 		m_ctrlIconOpenoff.SetIcon(m_hIconOff);
 		m_comm.SetPortOpen(FALSE);//关闭串口
 		m_StatBar->SetText("北斗：串口已断开",3,0);
-		state_system[3]=1;//北斗串口关闭
+		state_system[4]=1;//北斗串口关闭
 		m_board_led_BD.SetIcon(m_hIconOff);
+		m_bd_r.SetIcon(m_hIconOff);
 		GetDlgItem(IDC_STATIC_BOARDCONNECT_BD)->SetWindowText(" 北斗已断开！");
 		KillTimer(8);
-		GetDlgItem(IDC_BUTTON_SYSTEMCHECK)->EnableWindow(FALSE);
 		GetDlgItem(IDC_BUTTON_ICCHECK)->EnableWindow(FALSE);
 		GetDlgItem(IDC_BUTTON3_POWERCHECK)->EnableWindow(FALSE);
 //		GetDlgItem(IDC_BUTTON_SEND)->EnableWindow(FALSE);
@@ -943,9 +1005,16 @@ void CBeidouDlg::OnButtonSendMsg()
 {
 	// TODO: Add your control notification handler code here
 //		CString sendTmp="";
-	if (state_system[1]==0)//发短信时:3G可用，先用3G
+	UpdateData(FALSE);
+	if (state_system[3]==0)//发短信时:3G可用，先用3G
 	{
+		if(bTimer48OnOff == FALSE)
+		{
+			bTimer48OnOff = TRUE;
+			SetTimer(48,120*1000,NULL);//短信解码两分钟没回，开启CSQ
+		}
 		KillTimer(10);
+		if((flag_3G_in_busy==1)||(flag_3G_out_busy==1))this->GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
 		UpdateData(TRUE);  		
 		BOOL bIsSendSMS = FALSE;	
 		BOOL bChinese = FALSE;
@@ -957,8 +1026,8 @@ void CBeidouDlg::OnButtonSendMsg()
 		nEnglishLenth = countNum.nEnglishLenth;
 		nChineseLenth = countNum.nChineseLenth;
 		nTotalLenth = countNum.nTotalLenth;
-		stra.Format("英文字符数: %d,中文字符数: %d\r\n总共字符数: %d",nEnglishLenth , nChineseLenth , nTotalLenth);
-		AfxMessageBox(stra);
+		stra.Format("英: %d,中: %d\r\n共计: %d",nEnglishLenth , nChineseLenth , nTotalLenth);
+		m_StatBar->SetText("3G状态: "+stra,2,0); //以下类似
 		if (nChineseLenth == 0)
 			bChinese = FALSE;	
 		else
@@ -968,7 +1037,7 @@ void CBeidouDlg::OnButtonSendMsg()
 		{	//判断中文字符是否超出 16bit最多字符数70个  //还得计算中英文字符的个数		
 			if((nChineseLenth+nEnglishLenth) <= 70 )
 				bIsSendSMS = TRUE;
-			else if (((nChineseLenth+nEnglishLenth) > 70)&&((nChineseLenth+nEnglishLenth) <= 320 ) ) //先实现3条
+			else if (((nChineseLenth+nEnglishLenth) > 70)&&((nChineseLenth+nEnglishLenth) <= 330 ) ) //先实现3条
 			{
 				bIsSendLongSMS = TRUE;
 				nLongSMSSendCount = nTotalLenth/66 + 1;
@@ -986,19 +1055,29 @@ void CBeidouDlg::OnButtonSendMsg()
 			memset(chPDU,0,512);
 			if (bIsSendSMS == TRUE)
 			{
-				//		d = cEncodePDU(m_strSendPhoneNum,m_strReceicePhoneNum,m_strSMSText,chPDU,bChinese,nTotalLenth);//发件人，收件人，内容
+		//		d = cEncodePDU(m_strSendPhoneNum,m_strReceicePhoneNum,m_strSMSText,chPDU,bChinese,nTotalLenth);//发件人，收件人，内容
 				d = cEncodePDU(m_target_number,m_sendmsg,chPDU,bChinese,nTotalLenth);//00，收件人，内容  //默认是中文
 				if (d.bToReturn)
 				{
-					CString strTemp = "";
-					SendAtCmd("AT+CMGF=0",21); //PDU模式
-					strTemp.Format("%d",d.nLenthToReturn);
-					SendAtCmd("AT+CMGS="+strTemp,22);
-					nATCmdID = 23;
-					SetTimer(46,1000,NULL);
+					if(d.nLenthToReturn <=200)
+					{
+						CString strTemp = "";
+						SendAtCmd("AT+CMGF=0",21); //PDU模式
+						strTemp.Format("%d",d.nLenthToReturn);
+						SendAtCmd("AT+CMGS="+strTemp,22);
+						nATCmdID = 23;
+						SetTimer(46,1000,NULL);
+						bTimer48OnOff = FALSE;
+						KillTimer(48);
+						SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);//短信读完了，再打开3G查询定时器
+					}
+					else
+					{
+						m_StatBar->SetText("3G状态: 短信发送出错",2,0); //以下类似
+					}
 				}
 				else
-					AfxMessageBox("短信发送不成功，请检查后重新发送!");
+					m_StatBar->SetText("3G状态: 短信发送失败，检查后重试",2,0); //以下类似
 			}
 			else if (bIsSendLongSMS == TRUE)
 			{
@@ -1007,14 +1086,16 @@ void CBeidouDlg::OnButtonSendMsg()
 				longSMSStruct.strDstNum = m_target_number;
 				longSMSStruct.strSMSText = m_sendmsg;
 				longSMSStruct.nCount = nLongSMSSendCount;
+				srand((unsigned)time(NULL));
+				longSMSStruct.nLongSMSID = rand() % 100; 
 				SendLongSMS(&longSMSStruct);	
 				SetTimer(48,60*1000,NULL);// 防止发短信出错，卡在等PDU数据
 			}
 		} 
 		else
-		AfxMessageBox("短信字符数过多!字符数中文输入最多195，英文输入最多160");	
+			AfxMessageBox("短信字符数过多!字符数中文输入最多330，英文输入最多160");	
 	}
-	else if(state_system[3]==0){//发短信时:3G不可用，再用北斗
+	else if(state_system[4]==0){//发短信时:3G不可用，再用北斗
 		KillTimer(8);
 		UpdateData();
 		if (m_target_number.GetLength()!=6)//(m_otherID==0)
@@ -1031,6 +1112,15 @@ void CBeidouDlg::OnButtonSendMsg()
 
 			unsigned char hexdata[250];
 			int len=strHex(m_sendmsg,hexdata,250);
+			if (len>72)
+			{	
+				CString temp;
+				temp.Format("%d",len-72);
+				temp="北斗报文内容超出"+temp;
+				temp+="个字符，请修改后重试！";
+				AfxMessageBox(temp);
+				return;
+			}
 			CByteArray Array;
 			Array.RemoveAll();
 			int total_len=len+19;
@@ -1073,12 +1163,14 @@ void CBeidouDlg::OnButtonSendMsg()
 			SetTimer(1,timer_range*1000,NULL);//61秒后使能
 			SetTimer(2,1000,NULL);//每秒中断一次，设置一次进度条的值
 			GetDlgItem(IDC_BUTTON_SEND)->EnableWindow(FALSE);
+			flag_bd_is_busy=1;//北斗发送中，忙碌啊
 		}else{
 			AfxMessageBox("请输入短信内容。");
 		} 
+		GetDlgItem(IDC_BUTTON_SEND)->EnableWindow(FALSE);
 		SetTimer(8,(QUERY_INTERVAL+QUERY_BD),NULL);
 	}else{
-		AfxMessageBox("暂无短信链路可用！");
+		AfxMessageBox("暂无短信链路可用，请稍等再试！");
 	}
 }
 
@@ -1090,31 +1182,31 @@ void CBeidouDlg::OnButtonClear()
 		UpdateData(FALSE);	
 }
 
-void CBeidouDlg::OnButtonSystemcheck() 
-{
-	// TODO: Add your control notification handler code here
-// 	m_sata1.SetPos(0);
-// 	m_sata2.SetPos(0);
-//  	m_sata3.SetPos(0);
-// 	m_cardnumber=0;
-// 	m_cardstate="";
-// 	m_basestate="";
-// 
-// 	CByteArray Array;
-// 	Array.RemoveAll();
-// 	Array.SetSize(12);
-// 	for (int i=0; i<12; i++)
-// 	{
-// 		Array.SetAt(i,frame_SYS_check[i]);
-// 	}
-// 	
-// 	
-// 	if(m_comm.GetPortOpen())
-// 	{
-// 		m_comm.SetOutput(COleVariant(Array));//发送数据
-// 	}
-// 	UpdateData(FALSE);
-}
+//DEL void CBeidouDlg::OnButtonSystemcheck() 
+//DEL {
+//DEL 	// TODO: Add your control notification handler code here
+//DEL // 	m_sata1.SetPos(0);
+//DEL // 	m_sata2.SetPos(0);
+//DEL //  	m_sata3.SetPos(0);
+//DEL // 	m_cardnumber=0;
+//DEL // 	m_cardstate="";
+//DEL // 	m_basestate="";
+//DEL // 
+//DEL // 	CByteArray Array;
+//DEL // 	Array.RemoveAll();
+//DEL // 	Array.SetSize(12);
+//DEL // 	for (int i=0; i<12; i++)
+//DEL // 	{
+//DEL // 		Array.SetAt(i,frame_SYS_check[i]);
+//DEL // 	}
+//DEL // 	
+//DEL // 	
+//DEL // 	if(m_comm.GetPortOpen())
+//DEL // 	{
+//DEL // 		m_comm.SetOutput(COleVariant(Array));//发送数据
+//DEL // 	}
+//DEL // 	UpdateData(FALSE);
+//DEL }
 
 void CBeidouDlg::OnButtonIccheck() 
 {
@@ -1148,7 +1240,7 @@ void CBeidouDlg::OnButton3Powercheck()
  	m_sata3.SetPos(0);
 
 	CByteArray Array;
-	Array.RemoveAll();
+	Array.RemoveAll(); 
 	Array.SetSize(12);
 	for (int i=0; i<12; i++)
 	{
@@ -1176,9 +1268,10 @@ void CBeidouDlg::DeIcc(unsigned char *BUFF)
 	IccFrq= ((int)BUFF[15])*pow(2, 8)+((int)BUFF[16]);
 	comlev = BUFF[15];
 	
-	state_system[3]=0;//北斗应答：标记北斗可用
+	state_system[4]=0;//北斗应答：标记北斗可用
 	timer_board_disconnect_times_BD=0;//查询计数器归零
 	m_board_led_BD.SetIcon(m_hIconRed);
+	m_bd_r.SetIcon(m_hIconRed);
 	GetDlgItem(IDC_STATIC_BOARDCONNECT_BD)->SetWindowText(" 北斗已连接！");
 	m_FKXX+="北斗连接查询：正常\r\n";
 	UpdateData(FALSE);
@@ -1201,7 +1294,6 @@ void CBeidouDlg::DeIcc(unsigned char *BUFF)
 		frame_MSG_check[8]=0;
 		frame_MSG_check[9]=0;
 		
-		GetDlgItem(IDC_BUTTON_SYSTEMCHECK)->EnableWindow(TRUE);
 		GetDlgItem(IDC_BUTTON3_POWERCHECK)->EnableWindow(TRUE);
 //		GetDlgItem(IDC_BUTTON_SEND)->EnableWindow(TRUE);
 	}
@@ -1389,6 +1481,14 @@ void CBeidouDlg::DeMsg(unsigned char *BUFF)
 //	m_showmsg+="\t\t数据包：";
 //	m_showmsg+=strDisp;
 	m_showmsg+="\r\n";
+	strTmp = "";
+	strTmp = (char*)rec_text;
+	strForTTS = strTmp;
+	ttsStruct.nPlayTimers = 1; //暂时播放两次
+	ttsStruct.strTransmit = (LPCSTR)strTmp;
+//	pThread=AfxBeginThread(ThreadProc, &ttsStruct);
+	pThread=AfxBeginThread(ThreadProc, this);
+//	TTSModule(strTmp);
 }
 
 void CBeidouDlg::DeFKXX(unsigned char *BUFF)
@@ -1471,7 +1571,7 @@ int CBeidouDlg::strHex(CString str, unsigned char *data, int num)
 			i++;
 		}
 	}
-
+	
 	return i;
 }
 
@@ -1481,6 +1581,7 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 	if (nIDEvent==1)//北斗发送消息，按钮失能60s
 	{
 		GetDlgItem(IDC_BUTTON_SEND)->EnableWindow(TRUE);
+		flag_bd_is_busy=0;//发送完成，标记北斗空闲中
 		KillTimer(1);
 	} 
 	else if(nIDEvent==2)//每秒中断一次，设置一次进度条的值
@@ -1497,6 +1598,7 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 		OnButtonCall();//使摘机动作对用户透明，先操作一次摘机再调用一次，用于拨号
 		KillTimer(3);
 	}else if(nIDEvent==4){//有线电话定期轮检
+		if((tel_manual_select==0)||(m_tel_manual_select.GetCurSel()==1)){//自动模式,或者指定用有线电话时才查询
 		char lpOutBuffer[] = {'A','T','H','\r','\n'};//接着上传ATH指令进行挂机
 		CByteArray Array;
 		Array.RemoveAll();    
@@ -1512,7 +1614,7 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 		}
 		if(timer_board_disconnect_times_WT==0)timer_board_disconnect_times_WT++;
 		SetTimer(5,2000,NULL);//定时器4发出轮检查询帧后，打开定时器5，3次超时timer_board_disconnect_times_WT未被清零，则标记故障
-	
+		}
 	}else if(nIDEvent==5){
 		if (timer_board_disconnect_times_WT!=0)
 		{
@@ -1525,6 +1627,7 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 			UpdateData(FALSE);
 			timer_board_disconnect_times_WT=0;
 			m_board_led_WT.SetIcon(m_hIconOff);
+			m_wt_r.SetIcon(m_hIconOff);
 			GetDlgItem(IDC_STATIC_BOARDCONNECT_WT)->SetWindowText("有线电话连接丢失!");
 		}
 		KillTimer(5);
@@ -1586,6 +1689,7 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 	}
 	///////////////////////以上用于运维板定期查询///////////////////////////
 	else if(nIDEvent==8){//北斗定期轮检
+		if((msg_manual_select==0)||(m_tel_manual_select.GetCurSel()==2)){
 		CByteArray Array;
 		Array.RemoveAll();
 		Array.SetSize(12);
@@ -1601,7 +1705,7 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 		}
 		if(timer_board_disconnect_times_BD==0)timer_board_disconnect_times_BD++;
 		SetTimer(9,1500,NULL);//定时器8发出轮检查询帧后，打开定时器9，3次超时timer_board_disconnect_times_BD未被清零，则标记故障
-		
+		}
 	}else if(nIDEvent==9){
 		if (timer_board_disconnect_times_BD!=0)
 		{
@@ -1609,11 +1713,12 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 		}
 		if (timer_board_disconnect_times_BD>=QUERY_TOLERATE_TIMES)
 		{
-			state_system[3]=1;//北斗超时：标记北斗故障
+			state_system[4]=1;//北斗超时：标记北斗故障
 			m_FKXX+="北斗连接查询：故障\r\n";
 			UpdateData(FALSE);
 			timer_board_disconnect_times_BD=0;
 			m_board_led_BD.SetIcon(m_hIconOff);
+			m_bd_r.SetIcon(m_hIconOff);
 			GetDlgItem(IDC_STATIC_BOARDCONNECT_BD)->SetWindowText("北斗连接丢失!");
 		}
 		KillTimer(9);
@@ -1621,10 +1726,12 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 	//////////////////////以上用于北斗/////////////////////////////////
 	else if (nIDEvent == 10)
 	{
+		m_StatBar->SetText("3G状态：串口已开启",2,0); //以下类似
+		if((tel_manual_select==0)||(m_tel_manual_select.GetCurSel()==2)){//自动模式,或者指定用3G电话时才查询
 		SendAtCmd("AT+CSQ",6);      //查询CSQ
 		if(timer_board_disconnect_times_3G==0)timer_board_disconnect_times_3G++;
 		SetTimer(11,1500,NULL);//定时器10发出轮检查询帧后，打开定时器11，3次超时timer_board_disconnect_times_3G未被清零，则标记故障
-
+		}
 	}else if(nIDEvent==11){
 		if (timer_board_disconnect_times_3G!=0)
 		{
@@ -1632,29 +1739,134 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 		}
 		if (timer_board_disconnect_times_3G>=QUERY_TOLERATE_TIMES)
 		{
-			state_system[1]=1;//3G超时：标记3G故障
+			if((tel_manual_select==0)||(m_tel_manual_select.GetCurSel()==2)){//电话部分，自动或选中3G时允许修改
+				state_system[1]=1;//3G超时：标记3G故障
+			}
+			if((msg_manual_select==0)||(m_msg_manual_select.GetCurSel()==1)){//短信部分，自动或选中3G时允许修改
+				state_system[3]=1;
+			}
 			m_FKXX+="3G信号查询：故障\r\n";
 			UpdateData(FALSE);
 			timer_board_disconnect_times_3G=0;
 			m_board_led_3G.SetIcon(m_hIconOff);
+			m_3g_m_r.SetIcon(m_hIconOff);
+			m_3g_p_r.SetIcon(m_hIconOff);
 			GetDlgItem(IDC_STATIC_BOARDCONNECT_3G)->SetWindowText("3G连接丢失!");
 		}
 		KillTimer(11);
 	}
+	else if(nIDEvent==12){//反馈信息文本定时清空
+		CEdit* pEdit = ((CEdit*)GetDlgItem(IDC_EDIT_FKXX));
+		int len = pEdit->GetLineCount(); 
+		if (len >= 18) //自动截取文本，CEdit的限制为64K字节 
+		{ 
+			OnButtonClearmsg();
+		}
+	}else if (nIDEvent==13) {//有线电话自动应答，操作超时
+		KillTimer(13);
+		if((flag_PW_in_busy==1)||(flag_PW_out_busy==1)){
+			WT_state=3;
+			OnButtonCall();//对方输入操作超时，挂机
+		}
+	}
+	else if (nIDEvent==14) {//有线电话多链路接入广播超时
+		KillTimer(14);
+		m_StatBar->SetText("运维板状态：多链路广播申请超时",4,0); 
+		SetTimer(13,4000,NULL);//播放操作超时音
+		PlaySound(".//Wav//PrepareFailed.wav", NULL, SND_FILENAME|SND_ASYNC);//广播准备失败，请稍后重试 (4s)
+	}
+	else if (nIDEvent==15) {//有线电话循环播放振铃音
+		sound_switch(8);//切换到虚拟振铃模式
+		PlaySound(".//Wav//ring.wav", NULL, SND_FILENAME|SND_ASYNC);
+	}
+
+	else if (nIDEvent==16) {//3G电话自动应答，操作超时
+		KillTimer(16);
+		if((flag_3G_in_busy==1)||(flag_3G_out_busy==1)){ 
+			GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
+			OnButtonCall();//对方输入操作超时，挂机
+		}
+	}
+	else if (nIDEvent==17) {//3G电话多链路接入广播超时
+		KillTimer(17);
+		m_StatBar->SetText("运维板状态：多链路广播申请超时",4,0); 
+		SetTimer(16,4000,NULL);//播放操作超时音
+		PlaySound(".//Wav//PrepareFailed.wav", NULL, SND_FILENAME|SND_ASYNC);//广播准备失败，请稍后重试 (4s)
+	}
+	else if (nIDEvent==18) {//有线电话循环播放振铃音
+		sound_switch(9);//切换到虚拟振铃模式
+		PlaySound(".//Wav//ring.wav", NULL, SND_FILENAME|SND_ASYNC);
+	}
+	else if (nIDEvent==19) {
+		if(broad_prepare==2)
+		{
+			KillTimer(19);
+		}
+		if((flag_3G_in_busy==0)&&(flag_3G_out_busy==0)&&(flag_PW_in_busy==0)&&(flag_PW_out_busy==0)&&(flag_ST_in_busy==0)&&(flag_ST_out_busy==0))
+		applay_broadcast(2);
+	}
 	//////////////////////以上用于3G/////////////////////////////////
+	else if (nIDEvent == 20)
+	{
+		m_StatBar->SetText("卫星电话状态：串口已开启",1,0); //以下类似
+		if((tel_manual_select==0)||(m_tel_manual_select.GetCurSel()==3)){//自动模式,或者指定用卫星电话时才查询
+			if ((SerialPortOpenCloseFlag_ST==TRUE)&&(bISCallProcess_WX==FALSE))//只有在串口已经打开并且不是在通话中时才查询
+			{
+				Send_AT_Command_ST("AT+CSQ");//查询信号质量
+				SetTimer(22,1000,NULL);
+			}      
+			if(timer_board_disconnect_times_ST==0)timer_board_disconnect_times_ST++;
+			SetTimer(21,2000,NULL);//定时器20发出轮检查询帧后，打开定时器21，3次超时timer_board_disconnect_times_ST未被清零，则标记故障
+		}
+	}else if(nIDEvent==21){
+		if (timer_board_disconnect_times_ST!=0)
+		{
+			timer_board_disconnect_times_ST++;
+		}
+		if (timer_board_disconnect_times_ST>=QUERY_TOLERATE_TIMES)
+		{
+			if((tel_manual_select==0)||(m_tel_manual_select.GetCurSel()==3)){
+				state_system[2]=1;//卫星电话超时：标记卫星电话故障
+			}
+
+			m_FKXX+="卫星电话定位信号查询：故障\r\n";
+			UpdateData(FALSE);
+			timer_board_disconnect_times_ST=0;
+			m_board_led_ST.SetIcon(m_hIconOff);
+			m_st_r.SetIcon(m_hIconOff);
+			GetDlgItem(IDC_STATIC_BOARDCONNECT_ST)->SetWindowText("卫星电话连接丢失!");
+		}
+		KillTimer(21);
+	}else if(nIDEvent==22)//查询RINFO
+	{
+		KillTimer(22);
+		Send_AT_Command_ST("AT+RINFO");//区域信息	
+	}else if(nIDEvent==23){//定时查询TTS是否发送完毕
+		if (bIsTTSPlay==0)
+		{
+			applay_broadcast(2);//申请结束广播
+			KillTimer(23);
+		}
+	}
+	//////////////////////////以上用于卫星电话////////////////////////////////
 	//-----------------3G自动应答：5 S----------------------
 	else if (nIDEvent==31)  
 	{
 		KillTimer(31);
 		this->GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
 		UpdateData(FALSE);
-		if((flag_3G_in_busy==1)||(flag_3G_out_busy==1))    //这里有问题？？？？？？？？？？？？？？？？？？？？？？？flag_3G_in_busy，flag_3G_out_busy未初始化
-			OnButtonCall();//对方输入操作超时，挂机
+		m_StatBar->SetText("运维板状态：自动应答输入超时",4,0); 
+		SetTimer(16,3000,NULL);//播放操作超时音
+		PlaySound(".//Wav//TimeOut.wav", NULL, SND_FILENAME|SND_ASYNC);//对不起，您的操作已超时   (3s)
+		
 	}else if (nIDEvent==32)
 	{
 		KillTimer(32);
-		PlaySound(".//Wav//NoResponse.wav", NULL, SND_FILENAME|SND_ASYNC);//对不起，无人应答，请稍微再试
-		OnButtonCall();//本机超时未摘机，挂机		
+		this->GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
+		UpdateData(FALSE);
+		m_StatBar->SetText("运维板状态：本机无人接听超时",4,0);
+		SetTimer(16,4000,NULL);//播放操作超时音
+		PlaySound(".//Wav//NoResponse.wav", NULL, SND_FILENAME|SND_ASYNC);//对不起，无人应答，请稍后再试		
 	}
 	//-----------------3G自动应答：5 E----------------------
 	///////////////////////以上用于3G自动应答/////////////////////////////////
@@ -1662,23 +1874,23 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 	else if (nIDEvent==33)  
 	{
 		KillTimer(33);
-		if((flag_PW_in_busy==1)||(flag_PW_out_busy==1))OnButtonCall();//对方输入操作超时，挂机
-	}else if (nIDEvent==34)
+		this->GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
+		UpdateData(FALSE);
+		m_StatBar->SetText("运维板状态：自动应答输入超时",4,0); 
+		SetTimer(13,3000,NULL);//播放操作超时音
+		PlaySound(".//Wav//TimeOut.wav", NULL, SND_FILENAME|SND_ASYNC);//对不起，您的操作已超时   (3s)
+	}
+	else if (nIDEvent==34)
 	{
 		KillTimer(34);
-		PlaySound(".//Wav//NoResponse.wav", NULL, SND_FILENAME|SND_ASYNC);//对不起，无人应答，请稍微再试
-		if((flag_PW_in_busy==1)||(flag_PW_out_busy==1))OnButtonCall();//本机超时未摘机，挂机		
+		this->GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
+		UpdateData(FALSE);
+		m_StatBar->SetText("运维板状态：本机无人接听超时",4,0);
+		SetTimer(13,4000,NULL);//播放操作超时音
+		PlaySound(".//Wav//NoResponse.wav", NULL, SND_FILENAME|SND_ASYNC);//对不起，无人应答，请稍后再试		
 	}
 	//-----------------有线电话自动应答：5 E----------------------
-	///////////////////////以上用于优先点哈U自动应答/////////////////////////////////
-	else if (nIDEvent==35)
-	{
-// 		KillTimer(35);
-// 		HWND hWnd = ::FindWindow(NULL, _T("record11"));//关闭录音
-// 		if (NULL != hWnd) {
-// 			::SendMessage(hWnd, WM_CLOSE, 0, 0);
-// 		}	
-	}
+	///////////////////////以上用于自动应答/////////////////////////////////
 	else if (nIDEvent==40)  
 	{
 		if(bINIFail == TRUE) //继续初始化
@@ -1732,7 +1944,7 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 				case 40:
 					KillTimer(40);
 					if(SerialPortOpenCloseFlag_3G==TRUE)m_ctrlIconOpenoff_3G.SetIcon(m_hIconRed);//避免关闭串口与点灯不同步
-					if(tel_manual_select==0)SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);//查询下CSQ。被移动到初始化最后一个定时器中
+					SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);//查询下CSQ。被移动到初始化最后一个定时器中
 					SetTimer(42,2000,NULL);//短信查询 在定时器42里面，2s不能少
 					//将初始化过程关闭在ok里面
 					nATCmdID = 41; //设置为41,只是最后短信列表查询的判断
@@ -1751,12 +1963,17 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 	else if (nIDEvent == 41)
 	{
 		KillTimer(41);
-		SendAtCmd("AT+CMGD="+strSMSIndex+","+"0",31);//删除短信。
-		nSMSCount--;
-		if (nSMSCount!=0)			
-			SetTimer(42,1000,NULL);	
+		if (bRoughLongSMS)
+		{
+			SendAtCmd("AT+CMGD="+strSMSIndex+","+"0",31);     //删除短信。
+			strShortSMSIndex = "";
+		} 
 		else
-			SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);;
+		{
+			SendAtCmd("AT+CMGD="+strShortSMSIndex+","+"0",31);     //删除短信。	
+		}		
+		SetTimer(43,500,NULL);
+		strSMSIndex = "";
 	}
 	else if (nIDEvent == 42)
 	{
@@ -1766,13 +1983,39 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 			OnClearAll();
 		}
 		nSMSCount=0;
+		for (int n=0;n<SMSSIZE_10;n++)
+		{
+				SMSIndex[n] = "";
+		}
+		strSMSIndex = "";
 		SendAtCmd("AT+CMGL=4",40);      //查询短信
+		bRoughLongSMS = FALSE;
 	}
 	else if (nIDEvent == 43)
 	{
-		KillTimer(43);
-		SendAtCmd("AT+CMGR="+strSMSIndex,32);      //读取指定短信   AT+CMGR 32
-		
+		KillTimer(43);		
+		if (nSMSCount!=0)
+		{
+			for (int n=0;n<SMSSIZE_10;n++)
+			{
+				if (SMSIndex[n] != "")
+				{
+					strSMSIndex = SMSIndex[n];
+					SMSIndex[n] = "";
+					break;
+				}
+			}			
+			SendAtCmd("AT+CMGR="+strSMSIndex,32);//读取指定短信   AT+CMGR 32
+			nSMSCount--;
+			//	SetTimer(42,1000,NULL);	
+		//	SetTimer(41,2000,NULL);
+		}
+		else
+		{
+			SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);
+			strSMSIndex = "";
+			SetTimer(42,2000,NULL);
+		}				
 	}
 	else if (nIDEvent == 45)
 	{
@@ -1802,9 +2045,118 @@ void CBeidouDlg::OnTimer(UINT nIDEvent)
 	}
 	else if(nIDEvent == 48)
 	{
+		bTimer48OnOff = FALSE;
 		KillTimer(48);
-		SetTimer(10,8000,NULL);		
+		SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);	
 	}
+	else if(nIDEvent == 49)
+	{
+			bIsINIProcess = TRUE;
+			bINIFail = TRUE;
+			HWND hWnd = ::FindWindow(NULL, _T("record11"));//关闭录音
+			if (NULL != hWnd) {
+				::SendMessage(hWnd, WM_CLOSE, 0, 0);
+							}
+			SendAtCmd("ATE0",2);   //回显命令 0：MS 不回送从TE 接收的字符  1：MS 回送从TE 接收的字符。			
+	}
+	////////////////////以下定时器用于卫星电话/////////////////////////////////////////
+	else if (nIDEvent==50)
+	{
+		if(BINIfail_WX == TRUE) //继续初始化
+		{
+					switch(nATCmdFlags)
+					{
+						case 1:
+							KillTimer(50);
+							Send_AT_Command_ST("ATE0");  //关回显
+							nATCmdFlags = 2;
+							SetTimer(50,1000,NULL);
+							break;
+						case 2:
+							KillTimer(50);
+							Send_AT_Command_ST("AT+CLIP=1");  //开来电显示
+							nATCmdFlags = 3;
+							SetTimer(50,1000,NULL);
+							break;
+						case 3:
+							KillTimer(50);
+							Send_AT_Command_ST("AT+GPSSERVICE=1");//开GPS				
+							nATCmdFlags = 4;
+							SetTimer(50,1000,NULL);
+							break;
+						case 4:
+							KillTimer(50);
+							Send_AT_Command_ST("AT+CLVL=4");  //设置loudspeaker声音为4，最大
+							nATCmdFlags = 5;
+							SetTimer(50,1000,NULL);
+							break;
+						case 5:
+							KillTimer(50);
+							Send_AT_Command_ST("AT+CMEE=1");  //错误返回设置：设为返回错误代号
+							nATCmdFlags = 6;
+							SetTimer(50,1000,NULL);
+							break;
+						case 6:
+							KillTimer(50);
+							Send_AT_Command_ST("AT+CSQ");//查询信号质量
+							nATCmdFlags = 7;
+							SetTimer(50,1000,NULL);
+							break;
+						case 7:
+							KillTimer(50);
+							Send_AT_Command_ST("AT+CREG=1");  //查询注册状态的设置，返回状态代号
+							nATCmdFlags = 8;
+							SetTimer(50,1000,NULL);
+							break;
+						case 8:
+							KillTimer(50);
+							Send_AT_Command_ST("AT+GPSTRACK=1");//GPS追踪				
+							nATCmdFlags = 9;
+							SetTimer(50,1000,NULL);
+							break;
+						case 9:
+							KillTimer(50);
+							Send_AT_Command_ST("AT+RINFO");//区域信息
+							SetTimer(20,(QUERY_INTERVAL+QUERY_ST),NULL);//开始定期检测CSQ和RINFO
+							nATCmdFlags = 10;
+			//				SetTimer(50,1000,NULL);
+							break;
+						case 100:
+							nATCmdFlags = 1;
+							SetTimer(50,1000,NULL);
+							break;
+						default :			
+							break;
+					}
+		}
+		else
+		{
+			KillTimer(50);
+			SetTimer(55,10000,NULL);
+		}
+	} 
+	else if (nIDEvent == 55)//初始化返回error，重新初始化
+	{
+		KillTimer(55);
+		bISCallProcess_WX = TRUE;
+		BINIfail_WX = TRUE;
+		nATCmdFlags = 100;
+		SetTimer(50,1000,NULL);	
+	}
+	else if (nIDEvent == 59)//初始化未应答，重新初始化
+	{
+		BISInitial_WX = TRUE;
+		BINIfail_WX = TRUE;
+		HWND hWnd = ::FindWindow(NULL, _T("record11"));//关闭录音
+		if (NULL != hWnd) {
+			::SendMessage(hWnd, WM_CLOSE, 0, 0);
+		}
+		nATCmdFlags = 100;
+		Send_AT_Command_ST("AT");
+	}
+
+
+
 	CDialog::OnTimer(nIDEvent);
 }
 
@@ -1864,9 +2216,6 @@ void CBeidouDlg::OnButtonMessage()
 	SetWindowPos(NULL,0,0,rectMiddle.Width(),rectMiddle.Height(),SWP_NOMOVE|SWP_NOZORDER);
 	SetDlgItemText(IDC_BUTTON_SET,"配置");
 }
-
-extern int nCheckCount;//用于计算验证用户或密码(包括开始的1#和2#)的次数，最多三次
-extern int nFlag;//0表示其他，1表示正在用户名验证，2表示正在密码验证
  
 void CBeidouDlg::OnComm_WT() 
 {
@@ -1878,12 +2227,11 @@ void CBeidouDlg::OnComm_WT()
 	CString strDisp="",strTmp="";
 	int frequency_point=0;//频率扫描的总的频点数
 	double frequency_buf=0;//频点计算
-	int frame_index_WT;//帧的索引
-	
+	int frame_index_WT;//帧的索引	
 	
 	if((m_comm_WT.GetCommEvent()==2)) //事件值为2表示接收缓冲区内有字符
 	{
-
+		Sleep(160);
 		variant_inp=m_comm_WT.GetInput(); //读缓冲区
 		safearray_inp=variant_inp;  //VARIANT型变量转换为ColeSafeArray型变量
 		len=safearray_inp.GetOneDimSize(); //得到有效数据长度
@@ -1899,79 +2247,76 @@ void CBeidouDlg::OnComm_WT()
 			frame_index_WT++;			
 		}
 	
-	
-
+		
 	if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='N'))//检测是否为DTMF信号
 	{
-
-		if(frame_receive_WT[3]!='#'){
+		if ((bIsAutoResponseProcess == FALSE)&&(flag_PW_in_busy==1))
+		{
 			CString tmp;
 			tmp.Format("%c",frame_receive_WT[3]);
-			send_string+=tmp;
-		}else{//把接收到的串传给自动应答函数
-			send_string+='#';//加上#号
-			m_FKXX+="传号:";
-			m_FKXX+=send_string;
-			m_FKXX+="\r\n";
-			UpdateData(FALSE);
-			//---------------1 S----------------------
-			int nAuto = 10;//随便定义了一个数
-			if (send_string == "1#")
+				send_string+=tmp;
+			if(send_string.Find("#")!=-1)
 			{
-				//广播请求
-				SetTimer(33,AUTORESPONSE_TIME,NULL);//20s等待时间（等待用户输入，时间包括了播放语音的时间）
-				nAuto = bAutoResponse(PHONEID,send_string);
-			}
-			else if (send_string == "2#")
-			{
-				if (nFlag == 1 || nFlag == 2)
+				tmp =  send_string.Mid(0,1);
+				send_string = tmp;
+				send_string+='#';//加上#号
+				m_FKXX+="有线电话传号:";
+				m_FKXX+=send_string;
+				m_FKXX+="\r\n";
+				UpdateData(FALSE);
+				KillTimer(33);//停掉ring指令中打开的定时器33
+				nCountCheck++;
+				if (send_string == "1#")//多链路接入广播
 				{
-					OtherCmdDeal(send_string);
+					SetTimer(14,20000,NULL);//超时时，播放广播准备失败音
+					applay_broadcast(1);//申请开始广播
+					m_StatBar->SetText("运维板状态：多链路广播申请已下发，未应答",4,0); 
+					PlaySound(".//Wav//BroadPrepare.wav", NULL, SND_FILENAME|SND_ASYNC);//广播正在准备中，请稍候   (3s)
+					bIsAutoResponseProcess = TRUE;
+				}     
+				else if (send_string == "2#")//本地通话
+				{
+					SetTimer(34,NOPICKUP_TIME ,NULL);//自定义振铃等待
+					PlaySound(".//Wav//RingConnect.wav", NULL, SND_FILENAME|SND_ASYNC);//通话正在连接中，请稍候   (4s)   //这里可以弄一段背景音乐(可重复播放)
+					bIsAutoResponseProcess = TRUE;
+					//向电台人员通知来电,本地播放振铃音   
+					SetTimer(15,4000,NULL);//每隔4s播放一次ring振铃音
+					WT_state=4;//等待虚拟摘机
+					GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("接听电话");
+					GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
 				}
 				else
 				{
-				//通话请求
-					PlaySound(".//Wav//RingConnect.wav", NULL, SND_FILENAME|SND_ASYNC);//通话正在连接中，请稍候 
-					SetTimer(34,NOPICKUP_TIME,NULL);//自定义振铃等待60s
-					//向电台人员通知来电   文件RingPlay.wav
-
-					//Q：这里用户需要怎么操作，
-					//这里OnButtonCall ，再添加一个状态标志，做虚拟摘机
-					WT_state=4;
-					GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("接听电话");
+					if (nCountCheck < 3)
+					{
+						PlaySound(".//Wav//ErrorCmd.wav", NULL, SND_FILENAME|SND_ASYNC);//指令出错，请重新输入
+						SetTimer(33,AUTORESPONSE_TIME,NULL);//15s等待时间（等待用户输入，时间包括了播放语音的时间）
+					} 
+					else
+					{
+						WT_state=3;
+						GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
+						if((flag_PW_in_busy==1)||(flag_PW_out_busy==1))OnButtonCall();
+					}
+					
 				}
-			}
-			else//ID和PASSWORD等输入 
-			{				
-				SetTimer(33,AUTORESPONSE_TIME,NULL);//20s等待时间（等待用户输入，时间包括了播放语音的时间）
-				nAuto = bAutoResponse(PHONEID,send_string);
-			}
-
-			if(nAuto ==0)
-			{
-				Sleep(1000);
-				OnButtonCall();//挂机
-			}
-			else if(nAuto ==1)
-			{
-				//身份验证成功，和其他模块联系，准备广播
-			}
-			else if(nAuto ==2)
-			{
-				//继续进行操作
-				//此处应不需要做任何事
-			}
-			//-----------1 E-----------------
-			send_string="";
-			UpdateData(FALSE);
-		}	
-	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='C')&&(frame_receive_WT[3]=='I')&&(frame_receive_WT[4]=='D'))//检测是否为来电提示
+				send_string="";
+				UpdateData(FALSE);
+			}	
+		}
+		
+	}
+	else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='C')&&(frame_receive_WT[3]=='I')&&(frame_receive_WT[4]=='D'))//检测是否为来电提示
 	{
 		strDisp=frame_receive_WT+5;
 		call_in_number=strDisp;//开始拼接来电号码
 
 	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='Z'))//检测是否摘机成功
 	{
+		if (flag_PW_out_busy == 1)
+		{
+			ShellExecute(NULL,"open","record.exe",NULL,NULL,SW_SHOWNORMAL);	//主动呼出，启动录音
+		}		
 		m_FKXX+="摘机成功";
 		m_FKXX+="\r\n";
 	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='D'))//检测是否拨号成功
@@ -1981,6 +2326,7 @@ void CBeidouDlg::OnComm_WT()
 	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='H'))//检测是否挂机成功
 	{
 		m_board_led_WT.SetIcon(m_hIconRed);
+		m_wt_r.SetIcon(m_hIconRed);
 		GetDlgItem(IDC_STATIC_BOARDCONNECT_WT)->SetWindowText(" 有线电话已连接！"); 
 		timer_board_disconnect_times_WT=0;//查询计数器归零
 		state_system[0]=0;//有线电话应答：标记有线电话可用
@@ -1992,9 +2338,18 @@ void CBeidouDlg::OnComm_WT()
 		m_FKXX+="\r\n";
 	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='S')&&(frame_receive_WT[3]=='2'))//检测是否为挂机提示
 	{
+		applay_broadcast(2);//申请终止广播
+		SetTimer(19,3000,NULL);//全部语音链路空闲时，定期结束广播
+		KillTimer(34);//对方挂机，关闭摘机超时计时器
+		KillTimer(15);//对方挂机则关闭定期振铃音
+		KillTimer(14);
+		m_StatBar->SetText("运维板状态：多链路广播终止已下发，未应答",4,0); 
 		m_FKXX+="对方挂机";
 		m_FKXX+="\r\n";
-		OnButtonCall();//对方挂机后，我也挂机，电话状态设置为空闲
+		if((flag_PW_in_busy==1)||(flag_PW_out_busy==1)){
+			WT_state=3;
+			OnButtonCall();//对方挂机后，我也挂机，电话状态设置为空闲。避免出现对方先挂机，我之后立即挂机，此处出现重播的问题
+		}
 		char lpOutBuffer[] = {'A','T','H','\r','\n'};//接着上传ATH指令进行挂机
 		CByteArray Array;
 		Array.RemoveAll();
@@ -2008,28 +2363,26 @@ void CBeidouDlg::OnComm_WT()
 		{
 			m_comm_WT.SetOutput(COleVariant(Array));//发送数据
 		}
-
 		GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
-//		flag_PW_in_busy=0;//对方挂机，清零
-//		flag_PW_out_busy=0;//对方挂机，清零
-//		WT_state=0;
-		SetTimer(4,(QUERY_INTERVAL+QUERY_WT),NULL);//主动挂机和被动挂机都打开定时器
+		sound_switch(4);//开关切为默认
+		SetTimer(4,(QUERY_INTERVAL+QUERY_WT),NULL);//主动挂机和被动挂机都打开定时器//此处可删除
 	}else if ((frame_receive_WT[0]=='A')&&(frame_receive_WT[1]=='T')&&(frame_receive_WT[2]=='R')&&(frame_receive_WT[3]=='i')&&(frame_receive_WT[4]=='n')&&(frame_receive_WT[5]=='g'))//检测是否为来电提示音
 	{
+		if (state_system[0]==1)
+		{
+			return;
+		}
 		KillTimer(4);
 		m_FKXX+="Ring!  ";
-//		GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
-//		GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("接听电话");
-		PlaySound(".//ring.wav", NULL, SND_FILENAME|SND_ASYNC);
 		flag_PW_in_busy=1;
 		send_string="";//传号字符串清空，准备接收传号
 		//----------自动应答：2 S-----------
 		OnButtonCall();//摘机，自动播放第一段语音
-		PlaySound(".//Wav//Guide.wav", NULL, SND_FILENAME|SND_ASYNC);//应急电台系统，自动广播请按1，原始通话请按2,#号结束
+		sound_switch(5);//切换到有线电话被叫模式，进入自动应答
 		SetTimer(33,AUTORESPONSE_TIME,NULL);//20s等待时间（等待用户输入，时间包括了播放语音的时间）
+		PlaySound(".//Wav//Guide.wav", NULL, SND_FILENAME|SND_ASYNC);//应急电台系统，自动广播请按1，原始通话请按2,#号结束
 		//----------自动应答：2 E-----------
-//		SetTimer(4,5000,NULL);//(5S内接收到振铃信号则重置定时器)振铃5秒后未再次接收到振铃，认为是本机未摘机，而对方挂机
-
+		
 	}else if (rxdata[0] >='0' && rxdata[0]<='9')//检测是否是电话号码
 	{
 		strDisp=frame_receive_WT;
@@ -2041,7 +2394,7 @@ void CBeidouDlg::OnComm_WT()
 	{
 	//	AfxMessageBox("下位机帧有错误！",MB_OK,0);
 		m_FKXX+=frame_receive_WT;
-		m_FKXX+="电话板帧有错误，检察电话线是否连接好\r\n";
+		m_FKXX+="电话板帧有错误，检察线是否连好\r\n";
 	}
 		UpdateData(FALSE);
 	}
@@ -2085,7 +2438,7 @@ void CBeidouDlg::OnOpencloseportWT()
 			}
 
 //			GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
-			if(tel_manual_select==0)SetTimer(4,(QUERY_INTERVAL+QUERY_WT),NULL);//自动模式下才打开定时器
+			SetTimer(4,(QUERY_INTERVAL+QUERY_WT),NULL);//自动模式下才打开定时器
 		}
 		else
 			MessageBox("串口无法打开.");	 
@@ -2098,6 +2451,7 @@ void CBeidouDlg::OnOpencloseportWT()
 		m_comm_WT.SetPortOpen(FALSE);//关闭串口
 		state_system[0]=1;//有线电话串口关闭
 		m_board_led_WT.SetIcon(m_hIconOff);
+		m_wt_r.SetIcon(m_hIconOff);
 		GetDlgItem(IDC_STATIC_BOARDCONNECT_WT)->SetWindowText(" 有线电话已断开！"); 
 //		GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
 		m_StatBar->SetText("有线电话：串口已断开",0,0);
@@ -2125,24 +2479,24 @@ void CBeidouDlg::OnButtonClearNum()
 	m_target_number="0";
 	UpdateData(FALSE);
 	
-// 	if((flag_PW_in_busy==1)||(flag_PW_out_busy==1)){//通信中，按钮始终使能
-// 		GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
-// 	}else{//空闲中
-// 		GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
-// 	}	
+ 	if((flag_PW_in_busy==1)||(flag_PW_out_busy==1)||(flag_3G_out_busy==1)||(flag_3G_out_busy==1)){//通信中，按钮始终使能
+ 		GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
+ 	}else{//空闲中
+ 		GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
+ 	}	
 	GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(FALSE);
 }
 
 void CBeidouDlg::OnButtonCall() 
 {
 	// TODO: Add your control notification handler code here
-	if(state_system[0]==0){//拨打电话时：有线电话可用，先用有线电话
-		if((flag_PW_out_busy==0)&&(flag_PW_in_busy==0)&&(m_target_number=="0")){//只有拨打电话时(全部空闲)，才检测是否有号码输入
-			AfxMessageBox("请先输入对方号码");
+	if((state_system[0]==0)&&(flag_3G_in_busy==0)&&(flag_ST_in_busy==0)){//拨打电话时：有线电话可用 并且3G没有打入卫星电话没有打入，先用有线电话
+		if((flag_3G_out_busy==0)&&(flag_3G_in_busy==0)&&(flag_PW_out_busy==0)&&(flag_PW_in_busy==0)&&(m_target_number=="0")){//只有拨打电话时(全部空闲)，才检测是否有号码输入
+			AfxMessageBox("请先输入对方号码!");
 			return;
 	}
-
-		if(WT_state==0){//摘机
+		
+		if(WT_state==0){//摘机			
 			KillTimer(4);
 			char lpOutBuffer[] = {'A','T','Z','\r','\n'};//接着上传ATH指令进行挂机
 			CByteArray Array;
@@ -2157,44 +2511,22 @@ void CBeidouDlg::OnButtonCall()
 			{
 				m_comm_WT.SetOutput(COleVariant(Array));//发送数据
 			}
-			if (flag_PW_in_busy==1)//接听电话
+
+			if (flag_PW_in_busy==1)//被叫，接听电话
 			{
-//				KillTimer(4);//关闭定时器4。已经接听了，就不需要监测振铃了
 				WT_state=3;//该挂机啦
 				GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
 			} 
 			else//向外打电话
 			{
+				sound_switch(1);//有线电话，主动呼出
 				flag_PW_out_busy=1;//主动拨打电话
 				GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("正在拨号...");
 				GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(FALSE);//拨打电话时，关闭退格按钮
 				SetTimer(3,100,NULL);//100ms后再调用本函数进行拨号，使摘机动作对用户透明，先操作一次摘机再调用一次，用于拨号
 				WT_state=2;//该拨号啦
-			}
-			
-			
-		}else if (WT_state==3)//挂机
-		{
-			char lpOutBuffer[] = {'A','T','H','\r','\n'};//接着上传ATH指令进行挂机
-			CByteArray Array;
-			Array.RemoveAll();    
-			Array.SetSize(5);		
-			
-			for (int i=0; i<5; i++)
-			{
-				Array.SetAt(i,lpOutBuffer[i]);
-			}
-			if(m_comm_WT.GetPortOpen())
-			{
-				m_comm_WT.SetOutput(COleVariant(Array));//发送数据
-			}
-			GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
-			GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(TRUE);//挂机时，打开退格按钮
-			WT_state=0;//挂机，空闲中
-			flag_PW_out_busy=0;//主动挂机，清零
-			flag_PW_in_busy=0;//主动挂机，清零
-			SetTimer(4,(QUERY_INTERVAL+QUERY_WT),NULL);//主动挂机和被动挂机都打开定时器
-		} 
+			}			
+		}
 		else if(WT_state==2)//拨号
 		{
 			CByteArray Array;
@@ -2221,21 +2553,56 @@ void CBeidouDlg::OnButtonCall()
 				m_comm_WT.SetOutput(COleVariant(Array));//发送数据
 			}
 			GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
-			WT_state=3;//通话中
+			GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(TRUE);//使能退格键
+			WT_state=3;//下一步该挂机了
 		}
-		//------------------自动应答：4 S---------------------
+		else if (WT_state==3)//挂机
+		{			
+			char lpOutBuffer[] = {'A','T','H','\r','\n'};//接着上传ATH指令进行挂机
+			CByteArray Array;
+			Array.RemoveAll();    
+			Array.SetSize(5);		
+			
+			for (int i=0; i<5; i++)
+			{
+				Array.SetAt(i,lpOutBuffer[i]);
+			}
+			if(m_comm_WT.GetPortOpen())
+			{
+				m_comm_WT.SetOutput(COleVariant(Array));//发送数据
+			}
+
+			//关闭录音
+			HWND hWnd = ::FindWindow(NULL, _T("record11"));
+			if (NULL != hWnd) {
+				::SendMessage(hWnd, WM_CLOSE, 0, 0);
+			}//关录音完成
+
+			GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
+			WT_state=0;//挂机，空闲中。下一步摘机
+			flag_PW_out_busy=0;//主动挂机，清零
+			flag_PW_in_busy=0;//主动挂机，清零
+			bIsAutoResponseProcess = FALSE;
+			nCountCheck = 0;
+			SetTimer(4,(QUERY_INTERVAL+QUERY_WT),NULL);//主动挂机和被动挂机都打开定时器
+			sound_switch(4);//开关切为默认
+			applay_broadcast(2);//申请终止广播
+			SetTimer(19,3000,NULL);//全部语音链路空闲时，定期结束广播
+			KillTimer(15);//超时挂机则关闭定期振铃音
+			m_StatBar->SetText("运维板状态：多链路广播终止已下发，未应答",4,0); 
+		} 
 		else if(WT_state==4)//虚拟摘机
 		{
-			KillTimer(34);
-			//开mic
-			//正式开始普通电话通话
-	//		ShellExecute(NULL,"open","record.exe",NULL,NULL,SW_SHOWNORMAL);	//启动录音
+			KillTimer(34);//关闭摘机超时计时器
+			KillTimer(15);//摘机则关闭定期振铃音
+			sound_switch(1);//有线电话虚拟摘机，变为主动模式
+			ShellExecute(NULL,"open","record.exe",NULL,NULL,SW_SHOWNORMAL);	//被叫，虚拟摘机，启动录音
 			GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
-			WT_state=3;//通话中
-		}
-		//-------------------自动应答：4 E--------------------
-		//end of WT_state
-	}else if (state_system[1]==0)//拨打电话时：有线电话不可用时，再用3G电话
+			WT_state=3;//通话中,下一步就是挂机了
+		}//end of WT_state		
+	}
+	/*************************************3G********************************************/
+	else if ((state_system[1]==0)&&(flag_ST_in_busy==0))//拨打电话时：有线电话不可用时，再用3G电话
 	{
 		UpdateData(TRUE);
 		CString strToSend,str;
@@ -2246,6 +2613,11 @@ void CBeidouDlg::OnButtonCall()
 		} 
 		else if(str == "挂机")
 		{
+			//关闭录音
+			HWND hWnd = ::FindWindow(NULL, _T("record11"));
+			if (NULL != hWnd) {
+				::SendMessage(hWnd, WM_CLOSE, 0, 0);
+			}//关录音完成
 			nCallFlags = 3;
 		}
 		else if(str == "接听电话")
@@ -2263,7 +2635,7 @@ void CBeidouDlg::OnButtonCall()
 		{
 			case 0://暂不做什么
 				break;
-			case 1:
+			case 1://主叫，拨打电话
 				char *chNum;
 				chNum = (LPSTR)(LPCTSTR)m_target_number;
 				if (len>=11) //固话加上区号也有可能是11位
@@ -2283,54 +2655,112 @@ void CBeidouDlg::OnButtonCall()
 					else if(i==0)
 					{
 						AfxMessageBox("号码长度出错，或者11位号码不是手机号码。");
-						break;
+						return;
 					}
 				} 
-				else
+				else{
 					strTemp =m_target_number;   //直接拨出去
-				bIsCaller = TRUE;
+				}
+
+				bIsCaller = TRUE;//主叫标志位
 				strToSend = "ATD"+ strTemp;
 				strToSend += "I";//启动CLIR
 				strToSend += ";";
+				sound_switch(2);//开关切换到3G主动呼出模式
 				SendAtCmd(strToSend,11);
+				flag_3G_out_busy = 1;
 				this->GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");			
 				break;
-			case 2:
+			case 2://被叫，自动应答
 				//在自动摘机验证成功后将文本设为     接听电话 （重要）挂断电话在自动接听里面， 
-				SendAtCmd("ATA",12);
-				this->GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("");
-		//		this->GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");	//加入自动应答后删除			
-	/*			if(!bIsRecord)//录音标志位为FALSE   //--------------------调用录音程序
-				{
-					bIsRecord = TRUE;
-					ShellExecute(NULL,"open","record.exe",NULL,NULL,SW_SHOWNORMAL);//开始录音
-				}*/
+				SendAtCmd("ATA",12);//摘机
 				break;
-			case 3:
+			case 3://挂机
+				applay_broadcast(2);//申请终止广播
+				SetTimer(19,3000,NULL);//全部语音链路空闲时，定期结束广播
 				strToSend = "AT+CHUP";
 				SendAtCmd(strToSend,13);//情况比较特殊，挂断的回复，TRUEorFALSE均有可能，现在暂设为FALSE，不管
+				flag_3G_out_busy = 0;
+				flag_3G_in_busy = 0;
+				bRadioIsReady = FALSE;
+				nCountCheck = 0;
+				SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);
 				this->GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
 				m_FKXX += strToSend;
 				UpdateData(FALSE);
 				OnClearAll();
 				nCallFlags = 0;
+				bIsAutoResponseProcess = FALSE;
 				break;
-			case 4:
-				KillTimer(34);
-				KillTimer(33);
+			case 4://虚拟摘机
+				KillTimer(32);
+				KillTimer(18);
+				sound_switch(2);
 				//放音通知来电   //开mic    //正式开始普通电话通话
-				ShellExecute(NULL,"open","record.exe",NULL,NULL,SW_SHOWNORMAL);	//启动录音
+				bIsAutoResponseProcess = TRUE;
+				ShellExecute(NULL,"open","record.exe",NULL,NULL,SW_SHOWNORMAL);	//3G启动录音
+				bIsRecord = TRUE;
 				GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
 				break;
 			default:
 				break;
 		}
-	}else if (state_system[2]==0)//拨打电话时：有线电话、3G不可用时，再用卫星电话
+	}
+	/*************************************卫星电话********************************************/
+	else if (state_system[2]==0)//拨打电话时：有线电话、3G不可用时，再用卫星电话
 	{
-
+		UpdateData(TRUE);
+		int nCallSatelliteFlags = 0;
+		CString str;
+		this->GetDlgItemText(IDC_BUTTON_CALL,str);
+		if (str == "拨号")
+		{
+			nCallSatelliteFlags = 1;
+		} 
+		else if(str == "挂机")
+		{
+			nCallSatelliteFlags = 3;
+		}
+		else if(str == "接听")
+		{
+			nCallSatelliteFlags = 2;	
+		}
+		//无虚拟摘机
+		//判断
+		switch (nCallSatelliteFlags)
+		{
+		case 1:
+			KillTimer(20);//停止定期查询
+			bISCallProcess_WX = TRUE;
+			bISCaller_WX = TRUE;
+			flag_ST_out_busy=1;
+			this->GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
+			nATCmdFlags = 15;
+			Send_AT_Command_ST("ATD"+m_target_number+";");//拨号
+			break;
+		case 2:	
+			this->GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
+			nATCmdFlags = 16;
+			Send_AT_Command_ST("ATA");
+			ShellExecute(NULL,"open","record.exe",NULL,NULL,SW_SHOWNORMAL);	//启动录音
+			bIsRecording = TRUE;
+			break;
+		case 3:
+			SetTimer(20,(QUERY_ST+QUERY_INTERVAL),NULL);//打开查询定时器
+			bISCallProcess_WX = FALSE;
+			flag_ST_out_busy=0;
+			flag_ST_in_busy=0;
+			this->GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨号");
+			nATCmdFlags = 17;
+			Send_AT_Command_ST("ATH");
+			break;
+			//		ShellExecute(NULL,"open","record.exe",NULL,NULL,SW_SHOWNORMAL);	//启动录音
+		default:
+			break;
+		}
 	}
 	else{
-		AfxMessageBox("暂无电话链路可用！");
+		AfxMessageBox("暂无电话链路可用，请稍等再试！");
 	}
 
 
@@ -2355,6 +2785,8 @@ void CBeidouDlg::OnChangeEditTargetnum()
 void CBeidouDlg::OnButton1() 
 {
 	// TODO: Add your control notification handler code here
+//	applay_broadcast(1);
+
 	if(modulereset==TRUE) 
 	{
 		module_reset(1);//复位模块 1：有线电话；2：卫星电话；3：3G模块；4：北斗模块；5：广播板；6：其他；
@@ -2364,13 +2796,15 @@ void CBeidouDlg::OnButton1()
 		sound_switch(1);
 	}
 	else{//有线电话传号
-		chuanhao('1');
+		chuanhao('1',ChuanHaoID);
 	}
 }
 
 void CBeidouDlg::OnButton2() 
 {
 	// TODO: Add your control notification handler code here
+//	applay_broadcast(2);
+
 	if(modulereset==TRUE) 
 	{
 		module_reset(2);//复位模块 1：有线电话；2：卫星电话；3：3G模块；4：北斗模块；5：广播板；6：其他；
@@ -2380,23 +2814,25 @@ void CBeidouDlg::OnButton2()
 		sound_switch(2);
 	}
 	else{//有线电话传号
-		chuanhao('2');
+		chuanhao('2',ChuanHaoID);
 	}
 }
 
-void CBeidouDlg::chuanhao(char num)
+void CBeidouDlg::chuanhao(char num,CString ID)
 {
 	if (m_target_number=="0")//把零移除
 	{
 		m_target_number=m_target_number.Left(m_target_number.GetLength()-1);
 	}
 	if(SerialPortOpenCloseFlag_WT||SerialPortOpenCloseFlag_3G)GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
-	if(flag_PW_out_busy==0)GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(TRUE);//主动呼出时，失能退格按钮
+	GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(TRUE);
+//	if(flag_PW_out_busy==0)GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(TRUE);//主动呼出时，失能退格按钮
 	
 	m_target_number+=num;
 	UpdateData(FALSE);
 
-	if((flag_PW_in_busy==1)||(flag_PW_out_busy==1)){//呼入或呼出后，才传号
+	if((flag_PW_in_busy==1)||(flag_PW_out_busy==1))
+	{//有线电话呼入或呼出后，才传号
 		char lpOutBuffer[] = {'A','T','B','0','\r','\n'};//接着上传ATH指令进行挂机
 		lpOutBuffer[3]=num;
 		CByteArray Array;
@@ -2410,11 +2846,15 @@ void CBeidouDlg::chuanhao(char num)
 		if(m_comm_WT.GetPortOpen())
 		{
 			m_comm_WT.SetOutput(COleVariant(Array));//发送数据
-		}
-		
-		
-	}else if(switch_state==1){//发短信
-//		AfxMessageBox("gaga");
+		}				
+	}
+	else if((flag_3G_in_busy==1)||(flag_3G_out_busy==1)){//3G电话呼入或呼出后，才传号
+		CString strSend;
+		strSend = "AT^DTMF=";
+		strSend += ID;
+		strSend += ",";
+		strSend += num;
+		SendAtCmd(strSend,0);
 	}
 }
 
@@ -2430,7 +2870,7 @@ void CBeidouDlg::OnButton3()
 		sound_switch(3);
 	}
 	else{//有线电话传号
-		chuanhao('3');
+		chuanhao('3',ChuanHaoID);
 	}
 }
 
@@ -2446,39 +2886,71 @@ void CBeidouDlg::OnButton4()
 		sound_switch(4);
 	}
 	else{//有线电话传号
-		chuanhao('4');
+		chuanhao('4',ChuanHaoID);
 	}
 }
 
 void CBeidouDlg::OnButton5() 
 {
 	// TODO: Add your control notification handler code here
-	if((modulereset==FALSE)&&(soundswitch==FALSE)){
-		chuanhao('5');
+	if(modulereset==TRUE) 
+	{
+		module_reset(5);//复位模块 1：有线电话；2：卫星电话；3：3G模块；4：北斗模块；5：广播板；6：调理板；7：12V功放；8：17V功放；
+	}
+	else if (soundswitch==TRUE)
+	{
+		sound_switch(5);
+	}
+	else{
+		chuanhao('5',ChuanHaoID);
 	}
 }
 
 void CBeidouDlg::OnButton6() 
 {
 	// TODO: Add your control notification handler code here
-	if((modulereset==FALSE)&&(soundswitch==FALSE)){
-	chuanhao('6');
+	if(modulereset==TRUE) 
+	{
+		module_reset(6);//复位模块 1：有线电话；2：卫星电话；3：3G模块；4：北斗模块；5：广播板；6：调理板；7：12V功放；8：17V功放；
+	}
+	else if (soundswitch==TRUE)
+	{
+		sound_switch(6);
+	}
+	else{
+	chuanhao('6',ChuanHaoID);
 	}
 }
 
 void CBeidouDlg::OnButton8() //对应数字7键，写反了
 {
 	// TODO: Add your control notification handler code here
-	if((modulereset==FALSE)&&(soundswitch==FALSE)){
-	chuanhao('7');
+	if(modulereset==TRUE) 
+	{
+		module_reset(7);//复位模块 1：有线电话；2：卫星电话；3：3G模块；4：北斗模块；5：广播板；6：调理板；7：12V功放；8：17V功放；
+	}
+	else if (soundswitch==TRUE)
+	{
+		sound_switch(7);
+	}
+	else{
+	chuanhao('7',ChuanHaoID);
 	}
 }
 
 void CBeidouDlg::OnButton7() //对应数字8键，写反了
 {
 	// TODO: Add your control notification handler code here
-	if((modulereset==FALSE)&&(soundswitch==FALSE)){
-	chuanhao('8');
+	if(modulereset==TRUE) 
+	{
+		module_reset(8);//复位模块 1：有线电话；2：卫星电话；3：3G模块；4：北斗模块；5：广播板；6：调理板；7：12V功放；8：17V功放；
+	}
+	else if (soundswitch==TRUE)
+	{
+//		sound_switch(8);
+	}
+	else{
+	chuanhao('8',ChuanHaoID);
 	}
 }
 
@@ -2486,7 +2958,7 @@ void CBeidouDlg::OnButton9()
 {
 	// TODO: Add your control notification handler code here
 	if((modulereset==FALSE)&&(soundswitch==FALSE)){
-	chuanhao('9');
+	chuanhao('9',ChuanHaoID);
 	}
 }
 
@@ -2494,7 +2966,7 @@ void CBeidouDlg::OnButton10()
 {
 	// TODO: Add your control notification handler code here
 	if((modulereset==FALSE)&&(soundswitch==FALSE)){
-	chuanhao('0');
+	chuanhao('0',ChuanHaoID);
 	}
 }
 
@@ -2502,7 +2974,7 @@ void CBeidouDlg::OnButtonXing()
 {
 	// TODO: Add your control notification handler code here
 	if((modulereset==FALSE)&&(soundswitch==FALSE)){
-	chuanhao('*');
+	chuanhao('*',ChuanHaoID);
 	}
 }
 
@@ -2510,22 +2982,22 @@ void CBeidouDlg::OnButtonJing()
 {
 	// TODO: Add your control notification handler code here
 	if((modulereset==FALSE)&&(soundswitch==FALSE)){
-	chuanhao('#');
+	chuanhao('#',ChuanHaoID);
 	}
 }
 
 void CBeidouDlg::OnButtonBack() 
 {
 	// TODO: Add your control notification handler code here
-	if(flag_PW_out_busy==1){//拨出电话时，退格键对传号而言起不到任何作用，此时直接返回
-		return;
-	}
+//	if(flag_PW_out_busy==1){//拨出电话时，退格键对传号而言起不到任何作用，此时直接返回
+//		return;
+//	}
 	
 	m_target_number=m_target_number.Left(m_target_number.GetLength()-1);
 	if (m_target_number.GetLength()==0)
 	{
 		m_target_number+="0";
-		if((flag_PW_in_busy==0)&&(flag_PW_out_busy==0)){
+		if((flag_PW_in_busy==0)&&(flag_PW_out_busy==0)&&(flag_3G_in_busy==0)&&(flag_3G_out_busy==0)){
 			GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(FALSE);
 		}
 		GetDlgItem(IDC_BUTTON_BACK)->EnableWindow(FALSE);
@@ -2542,23 +3014,6 @@ void CBeidouDlg::OnDestroy()
 	HANDLE hself = GetCurrentProcess();
  	TerminateProcess(hself, 0);
 }
-
-//DEL void CBeidouDlg::OnCaptureChanged(CWnd *pWnd) 
-//DEL {
-//DEL 	// TODO: Add your message handler code here
-//DEL // 	HANDLE hself = GetCurrentProcess();
-//DEL // 	TerminateProcess(hself, 0);
-//DEL 
-//DEL 	CDialog::OnCaptureChanged(pWnd);
-//DEL }
-
-//DEL void CBeidouDlg::OnChar(UINT nChar, UINT nRepCnt, UINT nFlags) 
-//DEL {
-//DEL 	// TODO: Add your message handler code here and/or call default
-//DEL 	HANDLE hself = GetCurrentProcess();
-//DEL // 	TerminateProcess(hself, 0);
-//DEL 	CDialog::OnChar(nChar, nRepCnt, nFlags);
-//DEL }
 
 void CBeidouDlg::OnChangeEditFkxx() 
 {
@@ -2615,13 +3070,16 @@ void CBeidouDlg::OnComm_YW()
 //		AfxMessageBox(strDisp,MB_OK,0);
 
 	if (((flag_com_init_ack_YW==0)||(timer_board_disconnect_times_YW!=0))&&(frame_receive[1]=='r')&&(frame_receive[2]=='e')&&(frame_receive[3]=='y')&&(frame_receive[4]=='_')
-		&&(frame_receive[5]=='_')&&(frame_receive[6]==index_wakeup_times)&&(frame_receive[7]==XOR(frame_receive,7)))//首次连接握手，上位机软件接收时，不用避免$,\r,\n
+		&&(frame_receive[5]=='_')&&(frame_receive[6]==index_wakeup_times)&&(frame_receive[9]==XOR(frame_receive,9)))//首次连接握手，上位机软件接收时，不用避免$,\r,\n
 	{
 		flag_com_init_ack_YW=1;
 		m_board_led_YW.SetIcon(m_hIconRed);
 		GetDlgItem(IDC_STATIC_BOARDCONNECT_YW)->SetWindowText(" 运维板已连接！"); 
 		m_FKXX+="运维板连接查询：正常\r\n";
 		timer_board_disconnect_times_YW=0;//收到反馈则清零
+
+		int temperature=frame_receive[7]*256+frame_receive[8];
+		m_temperature.Format("%.1f",(float)temperature/10);
 		UpdateData(FALSE);
 		
 	}else if ((flag_com_init_ack_YW==1)&&(frame_receive[1]=='r')&&(frame_receive[2]=='s')&&(frame_receive[3]=='e')&&(frame_receive[4]=='_')
@@ -2645,28 +3103,48 @@ void CBeidouDlg::OnComm_YW()
 			m_StatBar->SetText("运维板状态：广播板复位完毕",4,0); 
 			break;
 		case 6:
-			m_StatBar->SetText("运维板状态：其他模块复位完毕",4,0); 
+			m_StatBar->SetText("运维板状态：调理板复位完毕",4,0); 
+			break;
+		case 7:
+			m_StatBar->SetText("运维板状态：12V功放复位完毕",4,0); 
+			break;
+		case 8:
+			m_StatBar->SetText("运维板状态：48V功放复位完毕",4,0); 
+			break;
+		default:
+			m_StatBar->SetText("运维板状态：复位模块指定出错",4,0); 
 			break;
 		}
 
 	}else if ((flag_com_init_ack_YW==1)&&(frame_receive[1]=='s')&&(frame_receive[2]=='w')&&(frame_receive[3]=='h')&&(frame_receive[4]=='_')
 		&&(frame_receive[5]=='_')&&(frame_receive[6]==index_control_times)&&(frame_receive[8]==XOR(frame_receive,8)))//切换音频开关申请帧
 	{
+//		if ((frame_receive[7]-0x30)!=5)sound_switch(5);//非自动应答模式下,切换到自动应答
+
 		if ((frame_receive[7]-0x30)==1)
 		{
-			m_StatBar->SetText("运维板状态：开关切换为1",4,0); 
+			m_StatBar->SetText("运维板状态：切换到有线电话主叫",4,0); 
 		} 
 		else if ((frame_receive[7]-0x30)==2)
 		{
-			m_StatBar->SetText("运维板状态：开关切换为2",4,0); 
+			m_StatBar->SetText("运维板状态：切换到3G主叫",4,0); 
 		}
 		else if ((frame_receive[7]-0x30)==3)
 		{
-			m_StatBar->SetText("运维板状态：开关切换为3",4,0); 
+			m_StatBar->SetText("运维板状态：切换到卫星电话主叫",4,0); 
 		}
 		else if ((frame_receive[7]-0x30)==4)
 		{
-			m_StatBar->SetText("运维板状态：开关切换为4",4,0); 
+			m_StatBar->SetText("运维板状态：切换到PC输出",4,0); 
+		}else if ((frame_receive[7]-0x30)==5)
+		{
+			m_StatBar->SetText("运维板状态：切换到有线电话被叫",4,0); 
+		}else if ((frame_receive[7]-0x30)==6)
+		{
+			m_StatBar->SetText("运维板状态：切换到3G被叫",4,0); 
+		}else if ((frame_receive[7]-0x30)==7)
+		{
+			m_StatBar->SetText("运维板状态：切换到卫星电话被叫",4,0); 
 		}
 		
 
@@ -2676,6 +3154,34 @@ void CBeidouDlg::OnComm_YW()
 	{
 		m_StatBar->SetText("运维板状态：配置为频谱扫描模式",4,0);
 		
+		
+	}else if ((flag_com_init_ack_YW==1)&&(frame_receive[1]=='p')&&(frame_receive[2]=='p')&&(frame_receive[3]=='p')&&(frame_receive[4]=='_')
+	&&(frame_receive[7]==XOR(frame_receive,7)))//多链路接入/断开申请通过//&&(frame_receive[5]==index_wakeup_times)
+	{
+		if (frame_receive[6]==1)
+		{
+			KillTimer(14);//关闭多链路申请超时定时器
+			KillTimer(17);
+			m_StatBar->SetText("运维板：多链路广播申请应答成功",4,0);
+			ShellExecute(NULL,"open","record.exe",NULL,NULL,SW_SHOWNORMAL);//3G开始录音
+			bIsRecord = TRUE;
+			GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
+			PlaySound(".//Wav//PrepareSuccess.wav", NULL, SND_FILENAME|SND_ASYNC);//广播准备成功，请开始广播
+			GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
+			broad_prepare=1;
+		} 
+		else if(frame_receive[6]==2)
+		{
+			m_StatBar->SetText("运维板：多链路广播断开应答成功",4,0); 
+			broad_prepare=2;
+		}
+		else if(frame_receive[6]==3)
+		{
+			KillTimer(14);//关闭多链路申请超时定时器
+			KillTimer(17);
+			m_StatBar->SetText("运维板：多链路广播申请应答成功",4,0);
+			broad_prepare=1;
+		}
 		
 	}else if ((flag_com_init_ack_YW==1)&&(frame_receive[1]=='r')&&(frame_receive[2]=='s')&&(frame_receive[3]=='t')&&(frame_receive[4]=='_')
 		&&(frame_receive[5]=='_')&&(frame_receive[6]==0)&&(frame_receive[7]==0)&&(frame_receive[8]==XOR(frame_receive,8)))//重传帧
@@ -2831,7 +3337,7 @@ void CBeidouDlg::module_reset(int index)//复位指定模块
 			index_control_times=0;
 		}
 		frame_board_reset_YW[5]=index_control_times;
-		frame_board_reset_YW[6]=index+0x30;//复位模块 1：有线电话；2：卫星电话；3：3G模块；4：北斗模块；5：广播板；6：其他；
+		frame_board_reset_YW[6]=index+0x30;//复位模块 1：有线电话；2：卫星电话；3：3G模块；4：北斗模块；5：广播板；6：调理板；7：12V功放；8：17V功放；
 		frame_board_reset_YW[7]=XOR(frame_board_reset_YW,7);
 		if ((frame_board_reset_YW[7]=='$')||(frame_board_reset_YW[7]==0x0d))
 		{
@@ -2873,6 +3379,11 @@ void CBeidouDlg::OnModuleReset()
 		GetDlgItem(IDC_BUTTON_2)->SetWindowText("卫星电话");
 		GetDlgItem(IDC_BUTTON_3)->SetWindowText("3G");
 		GetDlgItem(IDC_BUTTON_4)->SetWindowText("北斗");
+
+		GetDlgItem(IDC_BUTTON_5)->SetWindowText("广播板");
+		GetDlgItem(IDC_BUTTON_6)->SetWindowText("调理板");
+		GetDlgItem(IDC_BUTTON_8)->SetWindowText("12V功放");
+		GetDlgItem(IDC_BUTTON_7)->SetWindowText("48V功放");
 	} 
 	else
 	{
@@ -2883,6 +3394,11 @@ void CBeidouDlg::OnModuleReset()
 		GetDlgItem(IDC_BUTTON_2)->SetWindowText("2");
 		GetDlgItem(IDC_BUTTON_3)->SetWindowText("3");
 		GetDlgItem(IDC_BUTTON_4)->SetWindowText("4");
+
+		GetDlgItem(IDC_BUTTON_5)->SetWindowText("5");
+		GetDlgItem(IDC_BUTTON_6)->SetWindowText("6");
+		GetDlgItem(IDC_BUTTON_8)->SetWindowText("7");
+		GetDlgItem(IDC_BUTTON_7)->SetWindowText("8");
 	}
 }
 
@@ -2903,7 +3419,7 @@ void CBeidouDlg::sound_switch(int index)
 			index_control_times=0;
 		}
 		frame_board_sound_YW[5]=index_control_times;
-		frame_board_sound_YW[6]=index+0x30;//复位模块 1：有线电话；2：卫星电话；3：3G模块；4：北斗模块；5：广播板；6：其他；
+		frame_board_sound_YW[6]=index+0x30;//音频切换 1：有线电话；2：3G；3：卫星电话；4：PC音频输出；5：广播板；6：调理板；7：12V功放；8：48V功放；10：使用结束，切回空闲模式；
 		frame_board_sound_YW[7]=XOR(frame_board_sound_YW,7);
 		if ((frame_board_sound_YW[7]=='$')||(frame_board_sound_YW[7]==0x0d))
 		{
@@ -2940,10 +3456,14 @@ void CBeidouDlg::OnSoundSwitch()
 		soundswitch=TRUE;
 		GetDlgItem(IDC_SOUND_SWITCH)->SetWindowText("关闭切换");
 
-		GetDlgItem(IDC_BUTTON_1)->SetWindowText("开关1");
-		GetDlgItem(IDC_BUTTON_2)->SetWindowText("开关2");
-		GetDlgItem(IDC_BUTTON_3)->SetWindowText("开关3");
-		GetDlgItem(IDC_BUTTON_4)->SetWindowText("开关4");
+		GetDlgItem(IDC_BUTTON_1)->SetWindowText("有线电话主叫");
+		GetDlgItem(IDC_BUTTON_2)->SetWindowText("3G主叫");
+		GetDlgItem(IDC_BUTTON_3)->SetWindowText("卫星电话主叫");
+		GetDlgItem(IDC_BUTTON_4)->SetWindowText("PC音频输出");
+
+		GetDlgItem(IDC_BUTTON_5)->SetWindowText("有线电话被叫");
+		GetDlgItem(IDC_BUTTON_6)->SetWindowText("3G被叫");
+		GetDlgItem(IDC_BUTTON_8)->SetWindowText("卫星电话被叫");
 	} 
 	else
 	{
@@ -2954,6 +3474,10 @@ void CBeidouDlg::OnSoundSwitch()
 		GetDlgItem(IDC_BUTTON_2)->SetWindowText("2");
 		GetDlgItem(IDC_BUTTON_3)->SetWindowText("3");
 		GetDlgItem(IDC_BUTTON_4)->SetWindowText("4");
+
+		GetDlgItem(IDC_BUTTON_5)->SetWindowText("5");
+		GetDlgItem(IDC_BUTTON_6)->SetWindowText("6");
+		GetDlgItem(IDC_BUTTON_8)->SetWindowText("7");
 	}
 }
 
@@ -2981,15 +3505,14 @@ void CBeidouDlg::OnButtonConnect_3G()
 {
 	// TODO: Add your control notification handler code here
 	CString string1="115200,n,8,1";
-
+	
 	if(SerialPortOpenCloseFlag_3G==FALSE)
 	{
 		SerialPortOpenCloseFlag_3G=TRUE;
-
+		
 		//以下是串口的初始化配置
 		if(m_comm_3G.GetPortOpen())//打开端口前的检测，先关，再开
 			MessageBox("串口无法打开！");
-//			m_comm.SetPortOpen(FALSE);	//	
 		m_comm_3G.SetCommPort(m_DCom_3G); //选择端口，默认是com3
 		m_comm_3G.SetSettings((LPSTR)(LPCTSTR)string1); //波特率115200，无校验，8个数据位，1个停止位
 		if(!m_comm_3G.GetPortOpen())
@@ -2997,16 +3520,12 @@ void CBeidouDlg::OnButtonConnect_3G()
 			m_comm_3G.SetPortOpen(TRUE);//打开串口
 			GetDlgItem(IDC_BUTTON_CONNECT3G)->SetWindowText("关闭串口");
 			m_StatBar->SetText("3G状态：串口已打开",2,0); //以下类似
-
-//			m_ctrlIconOpenoff_3G.SetIcon(m_hIconRed);
 			UpdateData();
 			bIsINIProcess = TRUE;
 			bINIFail = TRUE;
 			SendAtCmd("ATE0",2);   //回显命令 0：MS 不回送从TE 接收的字符  1：MS 回送从TE 接收的字符。
-			nATCmdID = 1;
-			SetTimer(40,1000,NULL);	
+			SetTimer(49,5000,NULL);
 			index_resent_data_frame=0;//连接帧不支持重传机制
-//			if(tel_manual_select==0)SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);//查询下CSQ。被移动到初始化最后一个定时器中
 		}
 		else
 			MessageBox("无法打开3G串口，请重试！");	 
@@ -3019,9 +3538,12 @@ void CBeidouDlg::OnButtonConnect_3G()
 		m_StatBar->SetText("3G状态：串口已关闭",2,0); //以下类似
 		m_ctrlIconOpenoff_3G.SetIcon(m_hIconOff);
 		m_board_led_3G.SetIcon(m_hIconOff);
+		m_3g_m_r.SetIcon(m_hIconOff);
+		m_3g_p_r.SetIcon(m_hIconOff);
 		state_system[1]=1;//3G串口关闭
+		state_system[3]=1;
 		GetDlgItem(IDC_STATIC_BOARDCONNECT_3G)->SetWindowText(" 3G已断开！");
-//		flag_com_init_ack_3G=0;//运维板未连接
+		//		flag_com_init_ack_3G=0;//运维板未连接
 		m_comm_3G.SetPortOpen(FALSE);//关闭串口
 		KillTimer(10);
  	}	
@@ -3078,78 +3600,157 @@ void CBeidouDlg::OnComm_3G()
 
 	 int nIndex = 0;//索引
      if(m_comm_3G.GetCommEvent()==2) //事件值为2表示接收缓冲区内有字符
-     {              ////////以下你可以根据自己的通信协议加入处理代码
-         variant_inp=m_comm_3G.GetInput(); //读缓冲区
-         safearray_inp=variant_inp; //VARIANT型变量转换为ColeSafeArray型变量
-         len=safearray_inp.GetOneDimSize(); //得到有效数据长度
+     {////////以下你可以根据自己的通信协议加入处理代码
+		 Sleep(100);
+		 variant_inp=m_comm_3G.GetInput(); //读缓冲区
+		 safearray_inp=variant_inp; //VARIANT型变量转换为ColeSafeArray型变量
+		 len=safearray_inp.GetOneDimSize(); //得到有效数据长度
 		 m_comm_3G.GetInput();    //先预读缓冲区以清除残留数据
 		 int nTemp = strlen(cReceiveData);
-         for(k=0;k<len;k++)
-             safearray_inp.GetElement(&k,rxdata+k);//转换为BYTE型数组
+		 for(k=0;k<len;k++)
+			 safearray_inp.GetElement(&k,rxdata+k);//转换为BYTE型数组
 		 nIndex = nTemp;
-         for(k=0;k<len;k++) //将数组转换为Cstring型变量
-         {
-             BYTE bt=*(char*)(rxdata+k); //字符型
+		 for(k=0;k<len;k++) //将数组转换为Cstring型变量
+		 {
+			 BYTE bt=*(char*)(rxdata+k); //字符型
 			 cReceiveData[nIndex]=bt;
 			 nIndex++;//经过调试，cReceiveData前两个数据为0D0A 数据在index=2处开始
 			 strtemp.Format("%c",bt); //将字符送入临时变量strtemp存放
-             m_FKXX+=strtemp; //加入接收编辑框对应字符串 
+			 m_FKXX+=strtemp; //加入接收编辑框对应字符串 
 			 UpdateData(FALSE); //更新编辑框内容
-         }
+		 }
 			cReceiveData[nIndex]= '\0';
 			strtemp = cReceiveData;
-		
-		 if ((cReceiveData[2+0]=='R')&&(cReceiveData[2+1]=='I')&&(cReceiveData[2+2]=='N')&&(cReceiveData[2+3]=='G'))   //来电振铃
+
+		if(nATCmdID == 2)
 		{
-			 if (strtemp.Find("+CLIP") != -1)
-			 {
-					if (call_in_number_3G.IsEmpty()!=0)
-					{
-						int	n=strtemp.FindOneOf("\"");
-						strtemp.Delete(n,1);
-						int	k=strtemp.FindOneOf("\"");
-						call_in_number_3G = strtemp.Mid(n,k-n);
-						UpdateData(false);
-					}
-			 }	//来电，自动应答，
-				bIsCaller = FALSE;//变成被叫
-				GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("接听电话");
-				UpdateData(FALSE);
-				OnButtonCall(); //先实现通话
-				PlaySound(".//Wav//Guide.wav", NULL, SND_FILENAME|SND_ASYNC);//应急电台系统，自动广播请按1，原始通话请按2,#号结束
-				SetTimer(31,AUTORESPONSE_TIME,NULL);//15s等待时间（等待用户输入，时间包括了播放语音的时间）
+			if(strtemp.Find("OK")!=-1)
+			{
+				KillTimer(49);
+				SetTimer(40,1000,NULL);	
+				nATCmdID = 1;
+			}
 		}
-		 else if((strtemp.Find("BEGIN")!=-1)&&(bIsCaller == TRUE))//摘机回复指令
-		 {			 //^CONN: BEGIN 通话开始	主叫录音要写在自动应答里面
-			 m_FKXX+="3G摘机成功\r\n";
-			 	if(!bIsRecord)//录音标志位为FALSE
+		else if(nATCmdID == 40)
+		{					
+			if (strtemp.Find("+CMGL") != -1)
+			{
+				bRoughLongSMS = TRUE;
+			}
+			else
+			{
+				bIsNewSMS = FALSE;
+				bReadsmsTimeFlag = FALSE;
+			}
+		}
+
+		
+
+		if ((cReceiveData[2+0]=='R')&&(cReceiveData[2+1]=='I')&&(cReceiveData[2+2]=='N')&&(cReceiveData[2+3]=='G'))   //来电振铃
+		{
+			if (state_system[1]==1)
+			{
+				return;
+			}
+
+			flag_3G_in_busy = 1;
+			KillTimer(10); 
+			if (strtemp.Find("+CLIP") != -1)
+			{
+				if (call_in_number_3G.IsEmpty()!=0)
+				{
+					int	n=strtemp.FindOneOf("\"");
+					strtemp.Delete(n,1);
+					int	k=strtemp.FindOneOf("\"");
+					call_in_number_3G = strtemp.Mid(n,k-n);
+					UpdateData(false);
+				}
+			}	//来电，自动应答，
+			
+			bIsCaller = FALSE;//变成被叫
+			GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("接听电话");			
+			UpdateData(FALSE);
+			OnButtonCall(); //先实现通话
+			sound_switch(6);//切换到3G被叫模式
+			SetTimer(31,AUTORESPONSE_TIME,NULL);//15s等待时间（等待用户输入，时间包括了播放语音的时间）
+			PlaySound(".//Wav//Guide.wav", NULL, SND_FILENAME|SND_ASYNC);//应急电台系统，自动广播请按1，原始通话请按2,#号结束
+			
+		}
+		else if (strtemp.Find("+CLIP") != -1)//来电显示
+		{
+			int	n=strtemp.FindOneOf("\"");
+			strtemp.Delete(n,1);
+			int	k=strtemp.FindOneOf("\"");
+			call_in_number_3G = strtemp.Mid(n,k-n);
+			m_target_number = call_in_number_3G;
+			UpdateData(false);
+		}
+		else if(strtemp.Find("BEGIN")!=-1)//摘机回复指令
+		{			 //^CONN: BEGIN 通话开始	主叫录音要写在自动应答里面
+			m_FKXX+="3G摘机成功\r\n";
+			if (bIsCaller == TRUE)  //主叫
+			{
+				if(!bIsRecord)//录音标志位为FALSE
 				{
 					bIsRecord = TRUE;
-					ShellExecute(NULL,"open","record.exe",NULL,NULL,SW_SHOWNORMAL);//开始录音
+					ShellExecute(NULL,"open","record.exe",NULL,NULL,SW_SHOWNORMAL);//3G开始录音
 				}
 				GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
 				UpdateData(FALSE);
 				bIsRecord=TRUE;
+				SendAtCmd("AT+CLCC",0);
+			}
 		}
-		 else if(strtemp.Find("NO CARRIER")!=-1)//对方挂机回复指令
-		 {
-			 GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
-			 if (bIsRecord==TRUE)
-			 {	
-				HWND hWnd = ::FindWindow(NULL, _T("record11"));//关闭录音
-				if (NULL != hWnd) {
-					::SendMessage(hWnd, WM_CLOSE, 0, 0);
-				}	
-				bIsCaller = TRUE;  
-				bIsRecord=FALSE;
-			 }	 
-		 }
-		 else if(strtemp.Find("CEND")!=-1)//同上
-		 {			 // ^CEND: 000015（代号） 通话结束
+		else if(strtemp.Find("NO CARRIER")!=-1)//对方挂机回复指令
+		{
+			sound_switch(4);//3G结束通话，切回默认开关
+			SetTimer(19,3000,NULL);//全部语音链路空闲时，定期结束广播
+			SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);
+			KillTimer(17);
+			KillTimer(31);
+			KillTimer(32);
+			applay_broadcast(2);//申请终止广播
+			KillTimer(18);//对方挂机则关闭定期振铃音
+			m_StatBar->SetText("运维板状态：多链路广播终止已下发，未应答",4,0);
+			ChuanHaoID = "";
+			GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
+			OnButtonClearNum();
+			bRadioIsReady = FALSE;
+			bIsAutoResponseProcess = FALSE;
+			nCountCheck = 0;
+			if (bIsRecord==TRUE)
+			{	
+			flag_3G_out_busy = 0;
+			flag_3G_in_busy = 0;
+			HWND hWnd = ::FindWindow(NULL, _T("record11"));//关闭录音
+			if (NULL != hWnd) {
+				::SendMessage(hWnd, WM_CLOSE, 0, 0);
+			}	
+			bIsCaller = TRUE;  
+			bIsRecord=FALSE;
+			}	
+		}	 
+		else if(strtemp.Find("CEND")!=-1)//同上
+		{			 // ^CEND: 000015（代号） 通话结束
+			sound_switch(4);//3G结束通话，切回默认开关
+			SetTimer(19,3000,NULL);//全部语音链路空闲时，定期结束广播
+			SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);
+			flag_3G_out_busy = 0;
+			flag_3G_in_busy = 0;
+			bIsAutoResponseProcess = FALSE;
+			nCountCheck = 0;
+			KillTimer(17);
+			KillTimer(31);
+			KillTimer(32);
+			OnButtonClearNum();
+			applay_broadcast(2);//申请终止广播
+			KillTimer(18);//对方挂机则关闭定期振铃音
+			m_StatBar->SetText("运维板状态：多链路广播终止已下发，未应答",4,0);
+			ChuanHaoID = "";
 			UpdateData(TRUE);			
 			 if (bIsRecord==TRUE)
 			 {	
-			//	OnButtonCall();				
+			//	OnButtonCall();	
 				HWND hWnd = ::FindWindow(NULL, _T("record11"));//关闭录音
 				if (NULL != hWnd) {
 					::SendMessage(hWnd, WM_CLOSE, 0, 0);
@@ -3157,250 +3758,344 @@ void CBeidouDlg::OnComm_3G()
 				bIsCaller = TRUE;  
 				bIsRecord=FALSE;
 			 }
+			 bRadioIsReady = FALSE;
 			 GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("拨打电话");
-			 SetTimer(35,5000,NULL);//可能录音还未关闭，要关
 		}
-		else if(strtemp.Find("+CMGL:")!=-1)//短信查询返回内容
-		 {		
-			KillTimer(10);
-				CString stra;
-				int	n=strtemp.Find("+CMGL:");
-				int k=strtemp.Find(",");				
-				stra = strtemp.Mid(n+7,k-(n+7)); //还要改
-				nSMSCount++;
-				strtemp.Delete(n,20);			
-				n=0;
-				strSMSIndex =  stra;
-				while (strtemp.Find("+CMGL:")!=-1)
-				{
-					n=strtemp.Find("+CMGL:");
-					k=strtemp.Find(",");
-					stra = strtemp.Mid(n+7,k+2-(n+7));
-					nSMSCount++;
-					strtemp.Delete(n,15);
-				}
-				if (strtemp.Find("OK")!=-1)
-					SetTimer(43,1000,NULL);	
-				else
-					SetTimer(43,5000,NULL); //防止5条新短信的到来
-		 }
-		else if(strtemp.Find("+CMGR:")!=-1)//读取短信命令
-		 {
-				CString stra;
-				CString str2;
-				int	n=strtemp.Find(":");
-				int k=strtemp.Find("OK");
-				if (k==-1)
-					AfxMessageBox("CMGR cannot Find OK");
-				else
-				{
-					str2 = strtemp.Mid(n+2,1);
-					int h=strtemp.Find("\r\n",n);
-					stra = strtemp.Mid(h+2,k-4-(h+2));//已经取出，只需变成char，解码
-					n=0;
-					n=atoi(str2);
-					char *pSrc = (LPSTR)(LPCTSTR)stra;					
-					sms = ReadSMS(pSrc,sms,n);					
-					SetTimer(41,1000,NULL);//删除短信在定时器41里 ,再次查询在42里面
-				}
-		 }
-		else if(strtemp.Find("+CMTI:")!=-1)//新短信
-		{
-			KillTimer(10);
-			if (bIsNewSMS == false)
-			{
-				bIsNewSMS = TRUE;				
-				AfxMessageBox("新短信");
-				SetTimer(42,12000,NULL);  //短信查询在定时器42里面 				
-			} 
-		}
-		else if(strtemp.Find(">")!=-1) //发送短信：PDU数据的发送在定时器41里面
-		{
-		//	SetTimer(40,1000,NULL);
-			nATCmdID = 23;			
-		}	
-		else if(strtemp.Find("CLIP")!=-1)
-		{
-			if (call_in_number_3G.IsEmpty()!=0)
-			{
-				int	n=strtemp.FindOneOf("\"");
-				strtemp.Delete(n,1);
-				int	k=strtemp.FindOneOf("\"");
-				call_in_number_3G = strtemp.Mid(n,k-n);
-				UpdateData(false);	
-			}
-		}
-		else if(strtemp.Find("CSQ")!=-1)//查询信号强度
-		{			 //AT+CSQ
-			timer_board_disconnect_times_3G=0;//标记3G可用
-			state_system[1]=0;//3G应答：标记3G可用
-			m_board_led_3G.SetIcon(m_hIconRed);
-			GetDlgItem(IDC_STATIC_BOARDCONNECT_3G)->SetWindowText(" 3G已连接！");
-			m_FKXX+="3G信号查询：正常\r\n";
-			UpdateData(FALSE);
-
-			CString str3;
-			int	n=strtemp.FindOneOf(":");
-			int	k=strtemp.FindOneOf(",");
-			str3 = strtemp.Mid(n+2,k-(n+2));
-			int j = 0;
-			j = atoi(str3);
-			if ((j<=8)&&(j>0))
-			{
-				this->GetDlgItem(IDC_RSSI)->SetWindowText("信号强度: 差");
-			} 
-			else if ((j>=9)&&(j<=14))
-			{
-				this->GetDlgItem(IDC_RSSI)->SetWindowText("信号强度: 中");
-			}
-			else
-			{
-				if (strtemp.Find("99,")!=-1)
-				{
-					this->GetDlgItem(IDC_RSSI)->SetWindowText("信号未知");
-				}
-				else
-				{
-					this->GetDlgItem(IDC_RSSI)->SetWindowText("信号强度: 好");
-				}
-			}
-		//	str3 = strtemp.Mid(k-2,5);
-			UpdateData(false);
-		}
-		else if((strtemp.Find("ERROR")!=-1)&&(bIsINIProcess == TRUE))//初始化返回错误
-		{			 
-			bINIFail = FALSE;
-		}
-		else if((strtemp.Find("OK")!=-1)&&(41 == nATCmdID))
-		{
-			nATCmdID = 0;
-			bIsINIProcess = FALSE;
-		}
-		else if(strtemp.Find("CMS ERROR")!=-1) //短信错误返回
-		{			 //CMS
-			CString str4;
-			int	n=strtemp.FindOneOf("CMS ERROR");
-			str4 = strtemp.Mid(n,14);
-			GetDlgItem(IDC_CMSERROR)->SetWindowText(str4);
-			UpdateData(false);
-			//取数字，然后进行相应的取值操作
-			if (strtemp.Find("3")!=-1)
-			{
-				n=strtemp.Find("3");
-				str4 = strtemp.Mid(n,3);
-				CMSError(str4);
-			} 
-			else if(strtemp.Find("5")!=-1 )
-			{
-				n=strtemp.Find("5");
-				str4 = strtemp.Mid(n,3);
-				CMSError(str4);
-			}
-		}
-		else if(strtemp.Find("+CMGS")!=-1) //短信发送成功，进行短信保存  
-		{
-			CString str,strDateTime;
-			CTime m_Time;
-			m_Time = CTime::GetCurrentTime();
-			strDateTime = m_Time.Format(_T("%Y/%m/%d %H:%M:%S %A"));
-			UpdateData(TRUE);
-			str = "收件人:";
-			str += m_target_number;
-			str += "\r\n";
-			char pSrc[1024]; 
-			strncpy(pSrc,(LPCTSTR)str,str.GetLength());
-			CFile m_File;
-			m_File.Open(".//SendSMS.txt",CFile::modeCreate|CFile::modeReadWrite|CFile::modeNoTruncate|CFile::typeBinary|CFile::shareDenyNone,NULL);  
-			m_File.SeekToEnd();
-			m_File.Write(pSrc,sizeof(char)*str.GetLength());
-			str = "时间:";
-			str += strDateTime;
-			str += "\r\n";
-			strncpy(pSrc,(LPCTSTR)str,str.GetLength());
-			m_File.SeekToEnd();
-			m_File.Write(pSrc,sizeof(char)*str.GetLength());
-			str = "内容:";
-			str += m_sendmsg;
-			str += "\r\n";
-			strncpy(pSrc,(LPCTSTR)str,str.GetLength());
-			m_File.SeekToEnd();
-			m_File.Write(pSrc,sizeof(char)*str.GetLength());
-			m_File.Flush();
-			m_File.Close();
-			if (nLongSMSSendCount == 0)
-			{
-				AfxMessageBox("短信发送成功");
-			} 
-			else
-			{
-				SetTimer(47,100,NULL);
-			}
+		else if(strtemp.Find("+CLCC")!=-1)//主动传号
+		{			 			
+			int	n=strtemp.Find("+CLCC:");
+			int k=strtemp.Find(",");				
+			ChuanHaoID = strtemp.Mid(n+7,k-(n+7)); //还要改
 		}
 		else if(strtemp.Find("+RXDTMF:")!=-1) //传号
 		{			 //传号显示	 +RXDTMF: 1  			
-			if(bIsCaller == FALSE) //只有被叫才对传号进行操作
-			{
-				CString send_string;
-				for (int i=9;i<=13;i++)
-				{
-					if((cReceiveData[i]>='1'&&cReceiveData[i]<='9')||cReceiveData[i]=='0'||cReceiveData[i]=='*')
-					{									
-						chCollect[nCount] = cReceiveData[i];
-						nCount++;
-						send_string.Format("%c",cReceiveData[i]);
-						m_sendmsg += send_string;//cReceiveData[i];
-						UpdateData(FALSE);		
-						break;
-					}
-					else if(cReceiveData[i]=='#')
+			if((bIsCaller == FALSE)&&(bIsAutoResponseProcess == FALSE)) //只有被叫和处于自动应答过程中才对传号进行操作，进行广播或者虚拟摘机后就不处于自动应答过程中
+			{		
+				send_3Gstring+=cReceiveData[11];
+				if(send_3Gstring.Find("#")!=-1)
+				{		
+					CString stre = send_3Gstring.Mid(0,1);//只取第一位
+					send_3Gstring = stre;
+					send_3Gstring += '#';//加上#号
+					
+					m_FKXX+="3G传号:";
+					m_FKXX+=send_3Gstring;
+					m_FKXX+="\r\n";
+					UpdateData(FALSE);
+					KillTimer(31);
+					nCountCheck++;
+					if (send_3Gstring == "1#")//自动广播
 					{
-						int nAuto = 10;//随便定义了一个数
-						chCollect[nCount] = cReceiveData[i];
-						nCount++;
-						send_string = chCollect;
-						if (send_string == "1#")
-						{	//广播请求
-							SetTimer(31,AUTORESPONSE_TIME,NULL);//15s等待时间（等待用户输入，时间包括了播放语音的时间）
-							nAuto = bAutoResponse(G3ID,send_string);
-						}
-						else if (send_string == "2#")
+						SetTimer(17,20000,NULL);
+						bIsAutoResponseProcess = TRUE;
+						applay_broadcast(1);//申请开始广播
+						m_StatBar->SetText("运维板状态：多链路广播申请已下发，未应答",4,0); 
+						//通知运维，广播请求
+						PlaySound(".//Wav//BroadPrepare.wav", NULL, SND_FILENAME|SND_ASYNC);//广播正在准备中，请稍候   (4s)
+					}     
+					else if (send_3Gstring == "2#")//原本通话
+					{
+						PlaySound(".//Wav//RingConnect.wav", NULL, SND_FILENAME|SND_ASYNC);//通话正在连接中，请稍候   (5s)   //这里可以弄一段背景音乐(可重复播放)
+						SetTimer(32,NOPICKUP_TIME ,NULL);//自定义振铃等待
+						bIsAutoResponseProcess = TRUE;
+						//向电台人员通知来电 
+						SetTimer(18,4000,NULL);//每隔4s播放一次ring振铃音
+						//这里OnButtonCall ，再添加一个状态标志，做虚拟摘机
+						GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
+						GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("虚拟摘机");
+					}
+					else
+					{
+						if (nCountCheck < 3)
 						{
-							if (nFlag == 1 || nFlag == 2)
+							PlaySound(".//Wav//ErrorCmd.wav", NULL, SND_FILENAME|SND_ASYNC);//指令出错，请重新输入
+							SetTimer(31,AUTORESPONSE_TIME,NULL);//15s等待时间（等待用户输入，时间包括了播放语音的时间）
+						} 
+						else
+						{										
+							GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
+							if((flag_3G_in_busy==1)||(flag_3G_out_busy==1)){
+								GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("挂机");
+								OnButtonCall();
+							}
+						}
+						
+					}
+					
+					send_3Gstring="";
+					UpdateData(FALSE);
+				}	
+			}
+		}
+					else if(strtemp.Find("+CMGL:")!=-1)//短信查询返回内容
+					{		
+						KillTimer(10);
+							CString stra;
+							int t = 0;
+							int	n=strtemp.Find("+CMGL:");
+							int k=strtemp.Find(",");				
+							stra = strtemp.Mid(n+7,k-(n+7)); //还要改
+							nSMSCount++;
+							t=atoi(stra);
+							SMSIndex[t] = stra;
+							strtemp.Delete(n,30);							
+							while (strtemp.Find("+CMGL:")!=-1)
 							{
-								OtherCmdDeal(send_string);
+								n=strtemp.Find("+CMGL:");
+								k=strtemp.Find(",");
+					//			stra = strtemp.Mid(n+7,k+2-(n+7));
+								nSMSCount++;
+								stra = strtemp.Mid(n+7,k-(n+7));
+								t=0;
+								t=atoi(stra);
+								SMSIndex[t] = stra;
+								strtemp.Delete(n,30);
+							}
+							if (strtemp.Find("OK")!=-1)
+								SetTimer(43,1000,NULL);	
+							else
+								SetTimer(43,4000,NULL); //防止(5条以上)新短信的到来	
+					 }
+					else if(strtemp.Find("+CMGR:")!=-1)//读取短信命令
+					 {
+						bool bSMSToDecode = FALSE;//局部变量，表示是否进行解码
+						if (bReadsmsTimeFlag == FALSE)//定时器没开启
+						{	
+							if (strtemp.Find("050003")!=-1)
+							{		
+								SetTimer(42,12000,NULL);  //短信查询在定时器42里面 
+							bReadsmsTimeFlag = TRUE;
+								bRoughLongSMS = TRUE;
+								for(int t=0; t<SMSSIZE_10; t++)
+								{
+									SMSIndex[t] = "";
+									strLongSMSTextStore[t] = "";
+									strLongSMSIDStore[t] = "";
+								}										
+						/*		int k = strtemp.Find("050003");
+								CString strd;
+								strd = strtemp.Mid(k+8,2);
+								k = atoi(strd);*/
+
+								if (nSMSCount > 0) //这里是为了存储还有长短信，发送AT+CMGL=4，nSMSCount>0（有可能是上次解码，没解全）
+								{
+									bSMSToDecode = TRUE;
+								} 
+								else //第一条长短信
+								{
+									bSMSToDecode = FALSE;
+								}								
+							}
+							else if (strtemp.Find("060804")!=-1)
+							{
+								SetTimer(42,12000,NULL);  //短信查询在定时器42里面 
+							bReadsmsTimeFlag = TRUE;
+								bRoughLongSMS = TRUE;
+								for(int t=0; t<SMSSIZE_10; t++)
+								{
+									SMSIndex[t] = "";
+									strLongSMSTextStore[t] = "";
+									strLongSMSIDStore[t] = "";
+								}									
+						/*		int x = strtemp.Find("060804");
+								CString strd;
+								strd = strtemp.Mid(x+10,2);
+								x = atoi(strd);*/
+								
+								if (nSMSCount > 0) //还有问题
+								{
+									bSMSToDecode = TRUE;
+								} 
+								else //第一条长短信
+								{
+									bSMSToDecode = FALSE;
+								}								
 							}
 							else
-							{	//通话请求
-								PlaySound(".//Wav//RingConnect.wav", NULL, SND_FILENAME|SND_ASYNC);//通话正在连接中，请稍候 
-								SetTimer(32,NOPICKUP_TIME ,NULL);//自定义振铃等待15
-								//向电台人员通知来电   文件RingPlay.wav
-								//这里OnButtonCall ，再添加一个状态标志，做虚拟摘机
-								GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("虚拟摘机");
+							{
+								bSMSToDecode = TRUE;
 							}
 						}
-						else 
-						{	//ID和PASSWORD等输入
-							SetTimer(31,AUTORESPONSE_TIME,NULL);//15s等待时间（等待用户输入，时间包括了播放语音的时间）
-							nAuto = bAutoResponse(G3ID,send_string);
-						}
-						if(nAuto ==0)
+						else
 						{
-							OnButtonCall();//挂机
+							if ((strtemp.Find("050003")!=-1)||(strtemp.Find("060804")!=-1))
+							{
+								bRoughLongSMS = TRUE;
+								bSMSToDecode = TRUE;
+							}
+							else
+							{
+								AfxMessageBox("bReadsmsTimeFlag 出错");
+							}
+
 						}
-						else if(nAuto ==1)
-						{			//身份验证成功，和其他模块联系，准备广播
+
+						if (bSMSToDecode)//解码
+						{
+							CString stra;
+							CString str2;
+							int	n=strtemp.Find(":");
+							int k=strtemp.Find("OK");
+							if (k==-1)
+								m_StatBar->SetText("3G状态: 短信数据结尾无OK",2,0); //以下类似
+							else
+							{
+								str2 = strtemp.Mid(n+2,1);
+								int h=strtemp.Find("\r\n",n);
+								stra = strtemp.Mid(h+2,k-4-(h+2));//已经取出，只需变成char，解码
+								n=0;
+								n=atoi(str2);
+								char *pSrc = (LPSTR)(LPCTSTR)stra;					
+								sms = ReadSMS(pSrc,sms,n);
+								if(bTimer48OnOff == FALSE)
+								{
+									bTimer48OnOff = TRUE;
+									SetTimer(48,120*1000,NULL);//短信解码两分钟没回，开启CSQ
+								}
+								SetTimer(41,500,NULL);
+							}
 						}
-						else if(nAuto ==2)
-						{			//继续进行操作	//此处应不需要做任何事
+					 }
+					else if(strtemp.Find("+CMTI:")!=-1)//新短信
+					{
+						KillTimer(10);						
+						if ((bIsNewSMS == FALSE)&&(bReadsmsTimeFlag == FALSE)) //无新短信，且定时器没开启
+						{
+							bIsNewSMS = TRUE;
+
+							m_StatBar->SetText("3G状态: 新短信",2,0); //以下类似
+							int k=strtemp.Find(",");				
+							strShortSMSIndex = strtemp.Mid(k+1,1); //还要改							
+							SendAtCmd("AT+CMGR="+strShortSMSIndex,32);//读取指定短信   AT+CMGR 32
 						}
-						UpdateData(FALSE);
-						memset(chCollect,0,16);
-						nCount = 0;
-						break;
+						else
+						{
+							//不做任何事情
+						}							
 					}
-				}				
-			 }								
-		}
+					else if(strtemp.Find(">")!=-1) //发送短信：PDU数据的发送在定时器41里面
+					{
+					//	SetTimer(40,1000,NULL);
+						nATCmdID = 23;			
+					}	
+					
+					else if(strtemp.Find("CSQ")!=-1)//查询信号强度
+					{			 //AT+CSQ
+						timer_board_disconnect_times_3G=0;//标记3G可用
+						if((tel_manual_select==0)||(m_tel_manual_select.GetCurSel()==2)){//电话部分，自动或选中3G时允许修改
+							state_system[1]=0;//3G超时：标记3G故障
+						}
+						if((msg_manual_select==0)||(m_msg_manual_select.GetCurSel()==1)){//短信部分，自动或选中3G时允许修改
+							state_system[3]=0;
+						}
+						m_board_led_3G.SetIcon(m_hIconRed);
+						m_3g_m_r.SetIcon(m_hIconRed);
+						m_3g_p_r.SetIcon(m_hIconRed);
+						GetDlgItem(IDC_STATIC_BOARDCONNECT_3G)->SetWindowText(" 3G已连接！");
+						m_FKXX+="3G信号查询：正常\r\n";
+						UpdateData(FALSE);
+
+						CString str3;
+						int	n=strtemp.FindOneOf(":");
+						int	k=strtemp.FindOneOf(",");
+						str3 = strtemp.Mid(n+2,k-(n+2));
+						int j = 0;
+						j = atoi(str3);
+						if ((j<=8)&&(j>0))
+						{
+							this->GetDlgItem(IDC_RSSI)->SetWindowText("信号强度: 差");
+						} 
+						else if ((j>=9)&&(j<=14))
+						{
+							this->GetDlgItem(IDC_RSSI)->SetWindowText("信号强度: 中");
+						}
+						else
+						{
+							if (strtemp.Find("99,")!=-1)
+							{
+								this->GetDlgItem(IDC_RSSI)->SetWindowText("信号未知");
+							}
+							else
+							{
+								this->GetDlgItem(IDC_RSSI)->SetWindowText("信号强度: 好");
+							}
+						}
+					//	str3 = strtemp.Mid(k-2,5);
+						UpdateData(false);
+					}
+					else if((strtemp.Find("ERROR")!=-1)&&(bIsINIProcess == TRUE))//初始化返回错误
+					{			 
+						bINIFail = FALSE;
+					}
+					else if((strtemp.Find("OK")!=-1)&&(41 == nATCmdID))
+					{
+						nATCmdID = 0;
+						bIsINIProcess = FALSE;
+					}
+					else if(strtemp.Find("CMS ERROR")!=-1) //短信错误返回
+					{			 //CMS
+						CString str4;
+						int	n=strtemp.FindOneOf("CMS ERROR");
+						str4 = strtemp.Mid(n,14);
+						m_FKXX+=str4;
+						UpdateData(false);
+						//取数字，然后进行相应的取值操作
+						if (strtemp.Find("3")!=-1)
+						{
+							n=strtemp.Find("3");
+							str4 = strtemp.Mid(n,3);
+							CMSError(str4);
+						} 
+						else if(strtemp.Find("5")!=-1 )
+						{
+							n=strtemp.Find("5");
+							str4 = strtemp.Mid(n,3);
+							CMSError(str4);
+						}
+					}
+					else if(strtemp.Find("+CMGS")!=-1) //短信发送成功，进行短信保存  
+					{
+						CString str,strDateTime;
+						CTime m_Time;
+						m_Time = CTime::GetCurrentTime();
+						strDateTime = m_Time.Format(_T("%Y/%m/%d %H:%M:%S %A"));
+						UpdateData(TRUE);
+						str = "收件人:";
+						str += m_target_number;
+						str += "\r\n";
+						char pSrc[1500]; 
+						strncpy(pSrc,(LPCTSTR)str,str.GetLength());
+						CFile m_File;
+						m_File.Open(".//SendSMS.txt",CFile::modeCreate|CFile::modeReadWrite|CFile::modeNoTruncate|CFile::typeBinary|CFile::shareDenyNone,NULL);  
+						m_File.SeekToEnd();
+						m_File.Write(pSrc,sizeof(char)*str.GetLength());
+						str = "时间:";
+						str += strDateTime;
+						str += "\r\n";
+						strncpy(pSrc,(LPCTSTR)str,str.GetLength());
+						m_File.SeekToEnd();
+						m_File.Write(pSrc,sizeof(char)*str.GetLength());
+						str = "内容:";
+						str += m_sendmsg;
+						str += "\r\n";
+						strncpy(pSrc,(LPCTSTR)str,str.GetLength());
+						m_File.SeekToEnd();
+						m_File.Write(pSrc,sizeof(char)*str.GetLength());
+						m_File.Flush();
+						m_File.Close();
+						if (nLongSMSSendCount == 0)
+						{
+							this->GetDlgItem(IDC_BUTTON_CALL)->EnableWindow(TRUE);
+							UpdateData(FALSE);
+							m_StatBar->SetText("3G状态: 短信发送成功",2,0); //以下类似
+						} 
+						else
+						{
+							SetTimer(47,100,NULL);
+						}
+					}
+					
+							
 		memset(cReceiveData,0,2048);
 		strtemp = "";
 		UpdateData(false);
@@ -3412,6 +4107,10 @@ SMSInfoALL CBeidouDlg::ReadSMS(char *pSrc, SMSInfoALL smsb, int nTxRxFlag)
 	SM_PARAM *pDst;
 	pDst = &smsb.SMSInfo;
 	smsb = nDecodePdu(pSrc,smsb,nTxRxFlag);//短信解码
+	int num = 0;
+	m_StatBar->SetText("3G状态: 读取短信中,请稍候",2,0); //以下类似
+	CTime curtime = CTime::GetCurrentTime();
+	CString strTime = curtime.Format("%Y-%m-%d %H:%M:%S");
 	
 	if (nTxRxFlag==0||nTxRxFlag==1)
 	{
@@ -3424,28 +4123,112 @@ SMSInfoALL CBeidouDlg::ReadSMS(char *pSrc, SMSInfoALL smsb, int nTxRxFlag)
 //		this->GetDlgItem(IDC_TIME)->EnableWindow(FALSE);
 	}
 //	m_target_number = pDst->SCA;
-	m_target_number = pDst->TPA;
-	call_in_number_3G = pDst->TPA;
+//	m_target_number = pDst->TPA;
+//	call_in_number_3G = pDst->TPA;
 	if (smsb.bIsLongSMS)
 	{
 		strLongSMSText = "";
+		bool bIsEqual = FALSE;
 		strLongSMSTextStore[pDst->index - 1] = pDst->TP_UD;//从第一条开始，这里从0开始存
-	//	strLongSMSText += pDst->TP_UD;
-		strLongSMSText +=	 "\r\n";
-		for (int i=0;i<=9;i++)
+		strLongSMSIDStore[pDst->index - 1] = smsb.strLongSMSID;
+		
+		
+		for(int n=0; n<SMSSIZE_10; n++)
 		{
-			strLongSMSText += strLongSMSTextStore[i];
+			if(strLongSMSIDStore[n] != "")
+			{
+				
+				if (strLongSMSIDStore[n] == smsb.strLongSMSID)
+				{
+					num++;
+					bIsEqual = TRUE;
+				} 
+				else
+				{
+					bIsEqual = FALSE;
+					break;
+				}
+				
+			}
+			if(n>smsb.nSMSTotalNum)
+			{
+				break;
+			}
 		}
-		strLongSMSText +=	 "\r\n";
+		if (!bIsEqual)
+		{
+			for (int i=0;i<SMSSIZE_10;i++)
+			{							
+				strLongSMSTextStore[i] = "";
+				strLongSMSIDStore[i]= "";
+			}
+		}
+
+		//	strLongSMSText += pDst->TP_UD;
+//		strLongSMSText +=	 "\r\n";
+		for (int i=0;i<SMSSIZE_10;i++)
+		{
+			if(i>smsb.nSMSTotalNum)
+			{
+				break;
+			}
+			else
+			{
+				strLongSMSText += strLongSMSTextStore[i];
+			//	strLongSMSText +=	 "\r\n";
+			}
+		}
+		//开始解码长短信后两分钟，自动开启查询CSQ
+
+			if(smsb.nSMSTotalNum == num)
+			{//tts，检查在tts里面
+		//		TTSModule(strLongSMSText);
+		//		m_StatBar->SetText("3G状态：串口已连接",2,0); //以下类似
+				strLongSMSText += "\r\n";
+				bTimer48OnOff = FALSE;
+				KillTimer(48);
+				SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);//短信读完了，再打开3G查询定时器
+				
+				m_showmsg+=strTime;
+				m_showmsg+="从";
+				m_showmsg += pDst->TPA;
+				m_showmsg+="收到信息：\r\n";
+				m_showmsg += strLongSMSText;
+				UpdateData(FALSE);
+//				TTSModule(strLongSMSText);
+				ttsStruct.nPlayTimers = 1; //暂时播放两次
+				ttsStruct.strTransmit = (LPCSTR)strLongSMSText;
+//				pThread=AfxBeginThread(ThreadProc, &ttsStruct);
+				pThread=AfxBeginThread(ThreadProc, this);
+				m_StatBar->SetText("3G状态：串口已连接",2,0); //以下类似
+			}			
 	} 
 	else
 	{
 		strLongSMSText = pDst->TP_UD;
 		strLongSMSText += "\r\n";
+		bTimer48OnOff = FALSE;
+		KillTimer(48);
 		SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);//短信读完了，再打开3G查询定时器
-	}		
+
+		
+		m_showmsg+=strTime;
+		m_showmsg+="从";
+		m_showmsg += pDst->TPA;
+		m_showmsg+="收到信息：\r\n";
+		m_showmsg += strLongSMSText;
+		UpdateData(FALSE);
+//		TTSModule(strLongSMSText);
+		ttsStruct.nPlayTimers = 1; //暂时播放两次
+		ttsStruct.strTransmit = (LPCSTR)strLongSMSText;
+//		pThread=AfxBeginThread(ThreadProc, &ttsStruct);
+		pThread=AfxBeginThread(ThreadProc, this);
+		m_StatBar->SetText("3G状态：串口已连接",2,0); //以下类似
+	}	
+
+
 	CString strToSave;
-	char pH[1024];
+	char pH[1200];
 	CFile m_File;
 	strToSave = "发件人:";
 	strToSave += call_in_number_3G + "\r\n";	 
@@ -3453,11 +4236,14 @@ SMSInfoALL CBeidouDlg::ReadSMS(char *pSrc, SMSInfoALL smsb, int nTxRxFlag)
 	m_File.Open(".//ReceiveSMS.txt",CFile::modeCreate|CFile::modeReadWrite|CFile::modeNoTruncate|CFile::typeBinary|CFile::shareDenyNone,NULL); 
 	m_File.SeekToEnd();
 	m_File.Write(pH,sizeof(char)*strToSave.GetLength());
-	strToSave = "时间:";
-//	strToSave += m_strTime + "\r\n";
-	strncpy(pH,(LPCTSTR)strToSave,strToSave.GetLength());
-	m_File.SeekToEnd();
-	m_File.Write(pH,sizeof(char)*strToSave.GetLength());
+	if (!smsb.bIsLongSMS)
+	{
+		strToSave = "时间:";
+		strToSave += strTime + "\r\n";
+		strncpy(pH,(LPCTSTR)strToSave,strToSave.GetLength());
+		m_File.SeekToEnd();
+		m_File.Write(pH,sizeof(char)*strToSave.GetLength());
+	}	
 	strToSave = "内容:";
 	strToSave += strLongSMSText;
 	strncpy(pH,(LPCTSTR)strToSave,strToSave.GetLength());
@@ -3466,8 +4252,6 @@ SMSInfoALL CBeidouDlg::ReadSMS(char *pSrc, SMSInfoALL smsb, int nTxRxFlag)
 	m_File.Write(pH,sizeof(char)*strToSave.GetLength());
 	m_File.Flush();
 	m_File.Close();
-	m_showmsg = strLongSMSText;
-	UpdateData(FALSE);
 	return smsb;
 }
 
@@ -3477,39 +4261,91 @@ void CBeidouDlg::OnClearAll()
 		strLongSMSText =  "";
 	bIsNewSMS = FALSE;
 	nSMSCount = 0;
+	bTimer48OnOff = FALSE;
+	ChuanHaoID = "";
 }
 
 void CBeidouDlg::OnSelendokComboTelManualSelect() 
 {
 	// TODO: Add your control notification handler code here
-	if (m_tel_manual_select.GetCurSel()==0)//自动
-	{
-		tel_manual_select=0;//自动模式
-	} 
-	else if (m_tel_manual_select.GetCurSel()==1)//有线电话
-	{
-		KillTimer(4);
-		tel_manual_select=1;//手动模式
-		state_system[0]=0;
-		state_system[1]=1;
-		state_system[2]=1;
+	if((flag_3G_in_busy==0)&&(flag_3G_out_busy==0)&&(flag_PW_in_busy==0)&&(flag_PW_in_busy==0)){
+		if (m_tel_manual_select.GetCurSel()==0)//自动
+		{
+			tel_manual_select=0;//自动模式
+			/*查询有线电话*/
+			char lpOutBuffer[] = {'A','T','H','\r','\n'};//接着上传ATH指令进行挂机
+			CByteArray Array;
+			Array.RemoveAll();    
+			Array.SetSize(5);		
+			
+			for (int i=0; i<5; i++)
+			{
+				Array.SetAt(i,lpOutBuffer[i]);
+			}
+			if(m_comm_WT.GetPortOpen())
+			{
+				m_comm_WT.SetOutput(COleVariant(Array));//发送数据
+			}
+			/*查询3G*/
+			SendAtCmd("AT+CSQ",6);      //查询CSQ
+			/*查询卫星电话*/
+			if (SerialPortOpenCloseFlag_ST==TRUE)//只有在串口已经打开时才查询
+			{
+				CString msg = "AT+RINFO\r\n";
+				m_Port_ST.WriteToPort((LPCTSTR)msg);	//发送数据
+			}
 
-	}else if (m_tel_manual_select.GetCurSel()==2)//3G电话
-	{
-		KillTimer(10);
-		tel_manual_select=1;//手动模式
-		state_system[0]=1;
-		state_system[1]=0;
-		state_system[2]=1;
+		} 
+		else if (m_tel_manual_select.GetCurSel()==1)//有线电话模式：标记3G卫星均不可用，但有线电话可用与否看能否查询到。下同。
+		{
+			char lpOutBuffer[] = {'A','T','H','\r','\n'};//接着上传ATH指令进行挂机
+			CByteArray Array;
+			Array.RemoveAll();    
+			Array.SetSize(5);		
+			
+			for (int i=0; i<5; i++)
+			{
+				Array.SetAt(i,lpOutBuffer[i]);
+			}
+			if(m_comm_WT.GetPortOpen())
+			{
+				m_comm_WT.SetOutput(COleVariant(Array));//发送数据
+			}
 
-	}else if (m_tel_manual_select.GetCurSel()==3)//卫星电话
-	{
-		KillTimer(12);
-		tel_manual_select=1;//手动模式
-		state_system[0]=1;
-		state_system[1]=1;
-		state_system[2]=0;
+//			KillTimer(4);
+			tel_manual_select=1;//手动模式
+//			state_system[0]=0;
+			state_system[1]=1;
+			state_system[2]=1;
 
+		}else if (m_tel_manual_select.GetCurSel()==2)//3G电话
+		{
+			SendAtCmd("AT+CSQ",6);      //查询CSQ
+
+//			KillTimer(10);
+			tel_manual_select=1;//手动模式
+			state_system[0]=1;
+//			state_system[1]=0;
+			state_system[2]=1;
+
+		}else if (m_tel_manual_select.GetCurSel()==3)//卫星电话
+		{
+			if (SerialPortOpenCloseFlag_ST==TRUE)//只有在串口已经打开时才查询
+			{
+				CString msg = "AT+RINFO\r\n";
+				m_Port_ST.WriteToPort((LPCTSTR)msg);	//查询卫星电话的定位
+			}
+
+//			KillTimer(12);
+			tel_manual_select=1;//手动模式
+			state_system[0]=1;
+			state_system[1]=1;
+	//		state_system[2]=0;
+
+		}
+		tel_mode_saved=m_tel_manual_select.GetCurSel();//保存正确的选项
+	}else{
+		m_tel_manual_select.SetCurSel(tel_mode_saved);
 	}
 }
 
@@ -3529,57 +4365,579 @@ void CBeidouDlg::SendLongSMS(strLongSMS  *structUse)
 	totalOrder.Format("%d",structUse->nCount);//最多为9， 长短信一般最长为5
 	if (1==nLongSMSSendCount)
 	{
-		strPart = m_sendmsg.Mid(structUse->nStrSendLoc,m_sendmsg.GetLength()-nTotalNum);
+//		strPart = m_sendmsg.Mid(structUse->nStrSendLoc,m_sendmsg.GetLength()-nTotalNum);
+		strPart = m_sendmsg.Mid(structUse->nStrSendLoc,m_sendmsg.GetLength()-structUse->nStrSendLoc);
 		strCount countNum = Statistic(strPart);//字符统计
 		nLongSMSSendCount --;
-		d = cEncodeLongPDU(structUse->strDstNum,strPart,chPDU,structUse->bChineseFlag,countNum.nTotalLenth,order,totalOrder);//收件人，内容  //默认是中文
+		d = cEncodeLongPDU(structUse->strDstNum,strPart,chPDU,structUse->bChineseFlag,countNum.nTotalLenth,order,totalOrder,structUse->nLongSMSID);//收件人，内容  //默认是中文
 		if (d.bToReturn)
 		{
-			CString strTempc = "";
-			SendAtCmd("AT+CMGF=0",21); //PDU模式
-			strTempc.Format("%d",d.nLenthToReturn);
-			SendAtCmd("AT+CMGS="+strTempc,22);
-			nATCmdID = 23;
-			SetTimer(46,1000,NULL);
-			SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);
+			if(d.nLenthToReturn <=200)
+			{
+				CString strTempc = "";
+				SendAtCmd("AT+CMGF=0",21); //PDU模式
+				strTempc.Format("%d",d.nLenthToReturn);
+				SendAtCmd("AT+CMGS="+strTempc,22);
+				nATCmdID = 23;
+				SetTimer(46,1000,NULL);
+				SetTimer(10,(QUERY_INTERVAL+QUERY_3G),NULL);
+				longSMSStructINI();
+			}
+			else
+			{
+				longSMSStructINI();
+				m_StatBar->SetText("3G状态: 短信发送出错",2,0); //以下类似
+			}
+			
 		}
 		else
-			AfxMessageBox("短信发送不成功，请检查后重新发送!");
+		{
+			longSMSStructINI();
+			m_StatBar->SetText("3G状态: 短信发送失败,检查后重试",2,0); //以下类似
+		}
 	}
 	else
 	{
-		while ((nChNum<=65) && (nLongSMSSendCount != 1))
-		{
-			ch = m_sendmsg.GetAt(structUse->nStrSendLoc + nTotalNum);
-			if(ch<0||ch>255)
+			while ((nChNum<=65) && (nLongSMSSendCount != 1))
 			{
-				nChNum++;
-				nTotalNum+=2;
+				ch = m_sendmsg.GetAt(structUse->nStrSendLoc + nTotalNum);
+				if(ch<0||ch>255)
+				{
+					nChNum++;
+					nTotalNum+=2;
+				}
+				else 
+				{
+					nChNum++;
+					nTotalNum++;
+				}
 			}
-			else 
-			{
-				nChNum++;
-				nTotalNum++;
-			}
-		}
-		strPart = m_sendmsg.Mid(structUse->nStrSendLoc,nTotalNum);							
+		
+  		strPart = m_sendmsg.Mid(structUse->nStrSendLoc,nTotalNum);							
 		structUse->nStrSendLoc += nTotalNum;
 		strCount countNum = {2*nChNum-nTotalNum,nTotalNum-nChNum,nChNum};
 	//	strCount countNum = Statistic(strPart);//字符统计
 		nLongSMSSendCount --;
 		//	d = cEncodeLongPDU(structUse.strDstNum,strPart,chPDU,structUse.bChineseFlag,countNum.nTotalLenth,order,totalOrder);//收件人，内容  //默认是中文
-		d = cEncodeLongPDU(structUse->strDstNum,strPart,chPDU,structUse->bChineseFlag,65,order,totalOrder);//收件人，内容  //默认是中文
+		d = cEncodeLongPDU(structUse->strDstNum,strPart,chPDU,structUse->bChineseFlag,countNum.nTotalLenth,order,totalOrder,structUse->nLongSMSID);//收件人，内容  //默认是中文
 		if (d.bToReturn)
 		{
-			CString strTempd = "";
-			SendAtCmd("AT+CMGF=0",21); //PDU模式
-			strTempd.Format("%d",d.nLenthToReturn);
-			SendAtCmd("AT+CMGS="+strTempd,22);
-			nATCmdID = 23;
-			SetTimer(46,1000,NULL);
-			//定时器47在串口发送成功里面
+			if (d.nLenthToReturn <= 200)
+			{
+				CString strTempd = "";
+				SendAtCmd("AT+CMGF=0",21); //PDU模式
+				strTempd.Format("%d",d.nLenthToReturn);
+				SendAtCmd("AT+CMGS="+strTempd,22);
+				nATCmdID = 23;
+				SetTimer(46,1000,NULL);
+				//定时器47在串口发送成功里面
+			} 
+			else
+			{
+				longSMSStructINI();
+				m_StatBar->SetText("3G状态: 短信发送出错",2,0); //以下类似
+			}
 		}
 		else
-			AfxMessageBox("短信发送不成功，请检查后重新发送!");
+		{
+			longSMSStructINI();
+			m_StatBar->SetText("3G状态: 短信发送失败，检查后重试",2,0); //以下类似
+		}
 	}
+}
+
+void CBeidouDlg::OnSelendokComboMsgManualSelect() 
+{
+	// TODO: Add your control notification handler code here
+	if (m_msg_manual_select.GetCurSel()==0)//自动
+	{
+		/*查询3G*/
+		SendAtCmd("AT+CSQ",6);      //查询CSQ
+		/*查询北斗*/
+		CByteArray Array;//选择北斗模式，立刻查询北斗是否可用
+		Array.RemoveAll();
+		Array.SetSize(12);
+		for (int i=0; i<12; i++)
+		{
+			Array.SetAt(i,frame_IC_check[i]);
+		}		
+		if(m_comm.GetPortOpen())
+		{
+			m_comm.SetOutput(COleVariant(Array));//发送数据
+		}
+
+
+		msg_manual_select=0;
+		GetDlgItem(IDC_BUTTON_SEND)->EnableWindow(TRUE);
+	} 
+	else if(m_msg_manual_select.GetCurSel()==1)//3G短信：将北斗报文链路设置为不可用，至于3G短信可用与否，看定期查询结果。
+	{
+		SendAtCmd("AT+CSQ",6);      //查询CSQ
+		GetDlgItem(IDC_BUTTON_SEND)->EnableWindow(TRUE);
+
+		msg_manual_select=1;//手动
+		state_system[4]=1;
+	}
+	else if(m_msg_manual_select.GetCurSel()==2)//北斗报文
+	{
+		CByteArray Array;//选择北斗模式，立刻查询北斗是否可用
+		Array.RemoveAll();
+		Array.SetSize(12);
+		for (int i=0; i<12; i++)
+		{
+			Array.SetAt(i,frame_IC_check[i]);
+		}		
+		if(m_comm.GetPortOpen())
+		{
+			m_comm.SetOutput(COleVariant(Array));//发送数据
+		}
+
+		msg_manual_select=1;//手动
+		state_system[3]=1;
+		if (flag_bd_is_busy==1)//发送中时，将按钮再次失能。用于：点击北斗发送，切换到3G在切回北斗的情况。
+		{
+			GetDlgItem(IDC_BUTTON_SEND)->EnableWindow(FALSE);
+		}
+	}
+}
+
+void CBeidouDlg::longSMSStructINI()
+{
+	longSMSStruct.strDstNum = "";
+	longSMSStruct.strSMSText = "";
+	longSMSStruct.bChineseFlag = FALSE;
+	longSMSStruct.nTextLenth = 0;
+	longSMSStruct.nCount = 0;
+	longSMSStruct.nStrSendLoc = 0;
+	longSMSStruct.nLongSMSID = 0;
+}
+	
+BOOL TTSModule(CString str)
+{
+
+	BOOL bFlag = NULL;
+	BOOL bToRadio = CheckString(str);//检测字符串中是否有特殊字符双引号
+	if (bToRadio) //为真广播
+	{		//自动广播，这里暂时只用一个弹窗代替
+		bFlag = ttsSpeak(str);//tts,语音输出
+	//	TTS_Realease();	
+	}
+	else
+	{	
+		bFlag = FALSE;
+	}			
+	return bFlag;
+}
+
+void CBeidouDlg::On123() 
+{
+	// TODO: Add your control notification handler code here
+	strForTTS = "@@@@我是应急广播系统，为省、地以及街道政府职能部门在应急事件中实现应急指挥调度和应急广播服务管理提供技术支持，并面向广大用户提供无线电广播模式的灾害预警、事件告警、救援指导和政策宣传等广播服务。";
+//	strForTTS = "@@@@打狗棍，打狗得看主人啊，是吧。小洋人，乳酸菌。我咽不下那口恶气，胖子是我兄弟。";
+	//	TTSModule(strTTS);	
+	ttsStruct.nPlayTimers = 1; //暂时播放两次
+	ttsStruct.strTransmit = (LPCSTR)strForTTS;
+//	pThread=AfxBeginThread(ThreadProc, &ttsStruct);
+	if (bIsTTSPlay == FALSE) //未开始播放TTS
+	{
+		bIsTTSPlay = TRUE;
+		pThread=AfxBeginThread(ThreadProc, this);
+	} 
+	else //TTS播放中
+	{
+		AfxMessageBox("TTS正在进行中，请稍后再试");
+	}
+	
+}
+
+UINT ThreadProc(LPVOID lpParameter)
+{
+	CBeidouDlg *pBeiDouDlg = (CBeidouDlg*)lpParameter;
+/*	structForTTS Param;
+	MoveMemory(&Param,lpParameter,sizeof(Param));	
+	while ((Param.nPlayTimers != 0)&&(Param.strTransmit != ""))
+	{
+		CString str(Param.strTransmit);
+		TTSModule(str);
+		Param.nPlayTimers--;
+		if (0==Param.nPlayTimers)
+		{
+			Param.strTransmit = "";
+		}
+	}*/
+	while ((pBeiDouDlg->ttsStruct.nPlayTimers != 0)&&(pBeiDouDlg->ttsStruct.strTransmit != ""))
+	{
+		pBeiDouDlg->applay_broadcast(3);//TTS申请打开广播
+		pBeiDouDlg->SetTimer(23,2000,NULL);//每隔两秒查询TTS是否播放完毕，如果未完，继续查询；如果完毕则结束广
+		TTSModule(pBeiDouDlg->ttsStruct.strTransmit);
+		pBeiDouDlg->ttsStruct.nPlayTimers--;
+		if (0==pBeiDouDlg->ttsStruct.nPlayTimers)
+		{
+			pBeiDouDlg->ttsStruct.strTransmit = "";
+			pBeiDouDlg->bIsTTSPlay = FALSE;
+		}
+	}
+	return 0;
+}
+
+void CBeidouDlg::applay_broadcast(int n)//1:申请广播；2：停止广播；3:TTS申请广播;
+{
+	static bool is_busy=0;
+	if(is_busy==0){
+		is_busy=1;
+	if (index_wakeup_times<200)
+	{
+		index_wakeup_times++;
+		if ((index_wakeup_times==0x0d)||(index_wakeup_times==0x24))
+		{
+			index_wakeup_times++;
+		}
+	} 
+	else
+	{
+		index_wakeup_times=0;
+	}
+	frame_board_ppp[5]=index_wakeup_times;
+	frame_board_ppp[6]=n;
+	frame_board_ppp[7]=XOR(frame_board_ppp,7);
+	if ((frame_board_ppp[7]=='$')||(frame_board_ppp[7]==0x0d))
+	{
+		frame_board_ppp[7]++;//如果异或结果是$或0x0d，则值加一
+	}
+	frame_board_ppp[8]='\r';
+	frame_board_ppp[9]='\n';
+	CByteArray Array;
+	Array.RemoveAll();
+	Array.SetSize(8+2);
+	
+	for (int i=0;i<(8+2);i++)
+	{
+		Array.SetAt(i,frame_board_ppp[i]);
+	}
+	
+	if(m_comm_YW.GetPortOpen())
+	{
+		m_comm_YW.SetOutput(COleVariant(Array));//发送数据
+	}
+	is_busy=0;
+	}
+}
+
+void CBeidouDlg::OnButtonConnect_ST() 
+{
+	// TODO: Add your control notification handler code here
+	if(SerialPortOpenCloseFlag_ST==FALSE){
+		if(m_Port_ST.InitPort(this, m_DCom_ST, 9600,'N',8,1,EV_RXFLAG | EV_RXCHAR,512)){
+			m_Port_ST.StartMonitoring();
+			SerialPortOpenCloseFlag_ST=TRUE;
+			m_ctrlIconOpenoff_ST.SetIcon(m_hIconRed);
+			GetDlgItem(IDC_BUTTON_CONNECTST)->SetWindowText("关闭串口");
+			m_StatBar->SetText("卫星电话状态：串口已打开",1,0); //以下类似
+			UpdateData();
+			
+			//卫星电话初始化
+			nATCmdFlags = 100;
+			BISInitial_WX = TRUE;
+			BINIfail_WX = TRUE;
+			Send_AT_Command_ST("AT");
+			SetTimer(59,5000,NULL);
+			index_resent_data_frame=0;//连接帧不支持重传机制		
+		}else{
+			MessageBox("无法打开卫星电话串口，请重试！");
+			SerialPortOpenCloseFlag_ST=FALSE;
+		}
+	}else{
+			m_Port_ST.ClosePort();//关闭串口
+			
+			SerialPortOpenCloseFlag_ST=FALSE;
+			GetDlgItem(IDC_BUTTON_CONNECTST)->SetWindowText("打开串口");
+			GetDlgItem(IDC_STATIC_BOARDCONNECT_ST)->SetWindowText(" 卫星电话已关闭！");
+			UpdateData();
+
+			m_ctrlIconOpenoff_ST.SetIcon(m_hIconOff);
+			m_board_led_ST.SetIcon(m_hIconOff);
+			m_st_r.SetIcon(m_hIconOff);
+			state_system[2]=1;//卫星电话串口关闭，状态设为不可用
+			KillTimer(20);//停止定期查询
+			KillTimer(55);//返回error也停止初始化
+			KillTimer(59);//停止初始化
+			KillTimer(50);//停止初始化
+	}
+}
+
+void CBeidouDlg::OnSelendokComboComselect_ST() 
+{
+	// TODO: Add your control notification handler code here
+	m_DCom_ST=m_Com_ST.GetCurSel()+1;
+	UpdateData();
+	
+	CString strTemp;
+	strTemp.Format(_T("%d"),m_DCom_ST-1);
+	::WritePrivateProfileString("ConfigInfo","com_ST",strTemp,".\\config_phonemessage.ini");
+	
+	strTemp.Format(_T("%d"),m_DCom_ST);
+	::WritePrivateProfileString("ConfigInfo","com_r_ST",strTemp,".\\config_phonemessage.ini");	
+}
+
+LONG CBeidouDlg::OnCommunication(WPARAM ch, LPARAM port)
+{ 
+	UpdateData(TRUE);
+    COleSafeArray safearray_inp;
+	int nIndex = 0;//索引
+	static bool ST_CSQ_avilable=0;//卫星电话CSQ是否有信号。0：无信号；1：有信号；
+    CString strtemp;
+	strtemp.Format("%c",ch);
+		 
+	m_FKXX+=strtemp;		 
+	strdata += strtemp;
+
+	if(nATCmdFlags == 100)
+	{
+		if(strdata.Find("OK")!=-1)
+		{
+			KillTimer(59);
+			SetTimer(50,1000,NULL);	
+			nATCmdFlags = 1;
+			strdata = "";
+		}
+	}
+
+	if ((strdata.Find("OK")!=-1)&&(strdata.GetLength()<=3))
+	{
+		if ((bISCallProcess_WX == TRUE) && (bISCaller_WX == TRUE))
+		{
+			ShellExecute(NULL,"open","record.exe",NULL,NULL,SW_SHOWNORMAL);//开始录音
+			bIsRecording = TRUE;
+		}
+			strdata="";
+	}
+	else if (strdata.Find("RING")!=-1) //这个得测试下
+	{	
+		KillTimer(20);//停止定期查询
+		flag_ST_in_busy=1;
+		int i = strdata.Find("RING");
+		strdata = strdata.Mid(i,strdata.GetLength()-i);
+		//i = strdata.Find("OK");
+		if (i!=-1)
+		{
+			bISCaller_WX = FALSE;
+			if (bISCallProcess_WX == FALSE)
+			{
+				bISCallProcess_WX = TRUE;
+				this->GetDlgItem(IDC_BUTTON_CALL)->SetWindowText("接听");	
+			}
+			strdata = "";
+		}
+	}
+	else if (strdata.Find("CLIP:") != -1)//监听来电
+	{
+		KillTimer(20);//停止定期查询
+		int i = strtemp.Find("\"");
+		strdata = strdata.Mid(i,strdata.GetLength()-i);
+		//i = strdata.Find("OK");
+		if (i!=-1&&comingflag==0)
+		{
+			m_target_number="";
+			comingflag=1;
+		}
+		else if(i!=-1&&comingflag==1)
+		{	
+			comingflag=0;
+			UpdateData(FALSE);
+			strdata="";
+		}
+		if (comingflag==1&&i==-1)
+		{
+			 UpdateData(TRUE);
+			 m_target_number += strtemp;
+			 UpdateData(FALSE);
+		}
+	}
+	else if (strdata.Find("CSQ")!=-1)
+	{
+		CString str3;
+		int	n=strtemp.FindOneOf(":");
+		int	k=strtemp.FindOneOf(",");
+		str3 = strtemp.Mid(n+2,k-(n+2));
+		int j = 0;
+		j = atoi(str3);	
+			if ((j<=24)&&(j>0))
+			{
+				GetDlgItem(IDC_ST_RSSI)->SetWindowText("卫星电话信号: 差");
+				ST_CSQ_avilable=1;//可用
+			} 
+			else if ((j>=24)&&(j<=28))
+			{
+				GetDlgItem(IDC_ST_RSSI)->SetWindowText("卫星电话信号: 中");
+				ST_CSQ_avilable=1;//可用
+			}
+			else
+			{
+				if (strtemp.Find("99,")!=-1)
+				{
+					GetDlgItem(IDC_ST_RSSI)->SetWindowText("卫星电话信号未知。");
+					ST_CSQ_avilable=0;//不可用
+				}
+				else
+				{
+					GetDlgItem(IDC_ST_RSSI)->SetWindowText("卫星电话信号: 好");
+					ST_CSQ_avilable=1;//可用
+				}
+			}
+		strdata="";
+		UpdateData(false);
+	}
+	else if (strdata.Find("RINFO")!=-1)
+	{
+		int i = strdata.Find("RINFO");
+		strdata = strdata.Mid(i,strdata.GetLength()-i);
+		i = strdata.Find("2");
+		if (i!=-1)
+		{
+			timer_board_disconnect_times_ST=0;
+			GetDlgItem(IDC_ST_POSITION)->SetWindowText("卫星电话定位：成功");
+			if (ST_CSQ_avilable==1)//CSQ有信号时
+			{
+				state_system[2]=0;//标记卫星电话可用
+			}else{
+				state_system[2]=1;//CSQ无信号时，标记卫星电话不可用
+			}
+			
+		} 
+		else
+		{
+			GetDlgItem(IDC_ST_POSITION)->SetWindowText("卫星电话定位：失败");
+			state_system[2]=1;//标记卫星电话不可用
+		}
+		strdata="";
+	}
+	else if (strdata.Find("+GPSTRACKD")!=-1)
+	{ //先回OK
+		int i = strdata.Find("78");
+		int j = strdata.Find("48");
+		int k = strdata.Find("79");
+		if (i!=-1)
+		{
+			m_StatBar->SetText("卫星电话状态：GPS已定位",2,0);
+			strdata=""; 
+		}
+		else if (k!=-1)
+		{
+			m_StatBar->SetText("卫星电话状态：GPS已定位",2,0);
+			strdata="";
+		}
+		else if(j!=-1)
+		{
+			m_StatBar->SetText("卫星电话状态：GPS未定位",2,0);
+			strdata="";	
+		}
+	}
+	else if (strdata.Find("+RCIPH:")!=-1)
+	{//更新状态栏，已播出
+		m_StatBar->SetText("卫星电话状态：拨号中......",2,0);
+		strdata="";
+	}
+	else if(strdata.Find("ERROR")!=-1)//初始化返回错误
+	{	
+		if (BISInitial_WX == TRUE)
+		{
+			BINIfail_WX = FALSE;
+			strdata = "";
+		} 
+		else
+		{
+			int i = strdata.Find("OK");
+			if (i!=-1)
+			{
+				CString stra;
+				stra.Format("%d",nATCmdFlags);
+				AfxMessageBox("AT command "+stra+" error.");
+				strdata="";
+			}
+		}
+	}
+	else if((strdata.Find("OK")!=-1)&&(10 == nATCmdFlags))
+	{
+		nATCmdFlags = 0;
+		BISInitial_WX = FALSE;
+		BINIfail_WX = FALSE;
+		strdata = "";
+	}
+	else if (strdata.Find("CME ERROR")!=-1)//这里还要改！！！！！！！！！！！！！！
+	{
+		CString str;
+		this->GetDlgItemText(IDC_BUTTON_CALL,str);
+		if (str=="挂机")
+		{
+			if((flag_ST_in_busy==1)||(flag_ST_out_busy==1))OnButtonCall();
+		}
+		m_FKXX += strdata + "\r\n";
+		strdata ="";
+	}
+	else if((strdata.Find("NO CARRIER")!=-1)||(strdata.Find("BUSY")!=-1)||(strdata.Find("NO ANSWER")!=-1))//挂机
+	{
+		CString str;
+		this->GetDlgItemText(IDC_BUTTON_CALL,str);
+		if (str=="挂机")
+		{
+			if((flag_ST_in_busy==1)||(flag_ST_out_busy==1))OnButtonCall();
+		}
+
+		if (bIsRecording)//未关闭就关闭
+		{
+			bIsRecording = FALSE;
+			//关闭录音
+			HWND hWnd = ::FindWindow(NULL, _T("record11"));//要改，不是record11
+			if (NULL != hWnd) {
+				::SendMessage(hWnd, WM_CLOSE, 0, 0);
+			}
+		}
+		strdata="";	
+		SetTimer(20,(QUERY_INTERVAL+QUERY_ST),NULL);
+	}
+	UpdateData(FALSE); //更新编辑框内容	
+	return 0;
+}
+
+void CBeidouDlg::OnGPS() 
+{
+	// TODO: Add your control notification handler code here
+	if (SerialPortOpenCloseFlag_ST==TRUE)//只有在串口已经打开时才查询
+	{
+		CString msg = "AT+GPSTRACK=1\r\n";
+		m_Port_ST.WriteToPort((LPCTSTR)msg);	//发送数据
+	}
+}
+
+void CBeidouDlg::On_CSQ_ST() 
+{
+	// TODO: Add your control notification handler code here
+	if (SerialPortOpenCloseFlag_ST==TRUE)//只有在串口已经打开时才查询
+	{
+		CString msg = "AT+CSQ\r\n";
+		m_Port_ST.WriteToPort((LPCTSTR)msg);	//发送数据
+	}
+}
+
+void CBeidouDlg::On_Position_ST() 
+{
+	// TODO: Add your control notification handler code here
+	if (SerialPortOpenCloseFlag_ST==TRUE)//只有在串口已经打开时才查询
+	{
+		CString msg = "AT+RINFO\r\n";
+		m_Port_ST.WriteToPort((LPCTSTR)msg);	//发送数据
+	}
+}
+
+void CBeidouDlg::Send_AT_Command_ST(CString msg)
+{
+	if (SerialPortOpenCloseFlag_ST==TRUE)
+	{
+		msg+="\r\n";
+		m_FKXX += msg;
+		int nLentx = 0;
+		m_Port_ST.WriteToPort((LPCTSTR)msg);	//发送数据
+		UpdateData(FALSE);
+	}
+	
 }

@@ -151,7 +151,7 @@ funReturn ReversePhoneNum(char *pSrc, char *pDst, int nSrcLength)
 		break;
 	default:
 		a.bToReturn = FALSE;
-		AfxMessageBox("Phone Number or Length error");
+		AfxMessageBox("对方号码长度有误，请核实后重试！");
 		break;
 	}
 	
@@ -759,6 +759,7 @@ SMSInfoALL nDecodePdu(char *pSrc, SMSInfoALL smsa,int nTxRxFlag)
 	unsigned char uCharTmp;		// 内部用的临时字节变量
 	unsigned char buf[256];	// 内部用的缓冲区
 	int nPos=0;//表示字符位置(指针位置)
+	LSMSRETURN L;
 	if (nTxRxFlag==0||nTxRxFlag==1)//解析接受PDU
 	{	//短信查询
 				//08 SMSC开始
@@ -842,7 +843,7 @@ SMSInfoALL nDecodePdu(char *pSrc, SMSInfoALL smsa,int nTxRxFlag)
 						{	// 7-bit解码
 							if ((strIndex.Find("050003") != -1)||(strIndex.Find("060804") != -1))
 							{	//长短信
-								LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
+								L = LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
 								smsa.bIsLongSMS = TRUE;
 							}
 							else
@@ -856,7 +857,7 @@ SMSInfoALL nDecodePdu(char *pSrc, SMSInfoALL smsa,int nTxRxFlag)
 						} 
 						else
 						{	//长短信
-							LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
+							L = LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
 							smsa.bIsLongSMS = TRUE;
 						}
 					}
@@ -868,7 +869,7 @@ SMSInfoALL nDecodePdu(char *pSrc, SMSInfoALL smsa,int nTxRxFlag)
 						{
 							if ((strIndex.Find("050003") != -1)||(strIndex.Find("060804") != -1))
 							{	//长短信
-								LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
+								L = LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
 								smsa.bIsLongSMS = TRUE;
 							}
 							else
@@ -886,7 +887,7 @@ SMSInfoALL nDecodePdu(char *pSrc, SMSInfoALL smsa,int nTxRxFlag)
 						} 
 						else 
 						{	//长短信
-							LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
+							L = LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
 							smsa.bIsLongSMS = TRUE;
 						}
 					}
@@ -897,7 +898,7 @@ SMSInfoALL nDecodePdu(char *pSrc, SMSInfoALL smsa,int nTxRxFlag)
 						{
 							if ((strIndex.Find("050003") != -1)||(strIndex.Find("060804") != -1))
 							{	//长短信
-								LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
+								L = LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
 								smsa.bIsLongSMS = TRUE;
 							}
 							else
@@ -908,7 +909,7 @@ SMSInfoALL nDecodePdu(char *pSrc, SMSInfoALL smsa,int nTxRxFlag)
 						} 
 						else
 						{	//长短信
-							LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
+							L = LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
 							smsa.bIsLongSMS = TRUE;
 						}
 					}
@@ -1016,7 +1017,7 @@ SMSInfoALL nDecodePdu(char *pSrc, SMSInfoALL smsa,int nTxRxFlag)
 						{	// 7-bit解码
 							if ((strIndex.Find("050003") != -1)||(strIndex.Find("060804") != -1))
 							{	//长短信
-								LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
+								L = LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
 								smsa.bIsLongSMS = TRUE;
 							}
 							else
@@ -1030,7 +1031,7 @@ SMSInfoALL nDecodePdu(char *pSrc, SMSInfoALL smsa,int nTxRxFlag)
 						} 
 						else
 						{	//长短信
-							LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
+							L = LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
 							smsa.bIsLongSMS = TRUE;
 						}
 					}
@@ -1042,7 +1043,7 @@ SMSInfoALL nDecodePdu(char *pSrc, SMSInfoALL smsa,int nTxRxFlag)
 						{
 								if ((strIndex.Find("050003") != -1)||(strIndex.Find("060804") != -1))
 								{	//长短信
-									LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
+									L = LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
 									smsa.bIsLongSMS = TRUE;
 								}	
 								else
@@ -1060,7 +1061,7 @@ SMSInfoALL nDecodePdu(char *pSrc, SMSInfoALL smsa,int nTxRxFlag)
 						} 
 						else
 						{	//长短信
-							LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
+							L = LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
 							smsa.bIsLongSMS = TRUE;
 						}
 					}
@@ -1071,7 +1072,7 @@ SMSInfoALL nDecodePdu(char *pSrc, SMSInfoALL smsa,int nTxRxFlag)
 						{
 							if ((strIndex.Find("050003") != -1)||(strIndex.Find("060804") != -1))
 							{	//长短信
-								LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
+								L = LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
 								smsa.bIsLongSMS = TRUE;
 							}
 							else
@@ -1082,19 +1083,25 @@ SMSInfoALL nDecodePdu(char *pSrc, SMSInfoALL smsa,int nTxRxFlag)
 						} 
 						else
 						{	//长短信
-							LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
+							L = LongSMSTextDeCode(pSrc+nPos,pDst,pDst->TP_DCS,len);
 							smsa.bIsLongSMS = TRUE;
 						}
 					}
 			smsa.nToReturn=1;
 	}
+	smsa.nSMSTotalNum = L.nAllNum;
+	smsa.strLongSMSID = L.strID; 
 	return smsa;
 }
 //长短信的内容解析，PDU中信息长度后面内容的解析
 //1表示解码成功，0表示解码出错
-int LongSMSTextDeCode(char *pSrc, SM_PARAM *pDst,int ndecodeMode,int nLength)
+LSMSRETURN LongSMSTextDeCode(char *pSrc, SM_PARAM *pDst,int ndecodeMode,int nLength)
 {
+	LSMSRETURN lToReturn;
+	lToReturn.ntoreturn = 0;
+	lToReturn.strID = "";
 	CString strSMSText = "";
+	CString strSMSTotalNum = "";
 	int nPos = 0;
 	int nlen = 0;
 	int i = 0;
@@ -1110,30 +1117,37 @@ int LongSMSTextDeCode(char *pSrc, SM_PARAM *pDst,int ndecodeMode,int nLength)
 		{
 			AfxMessageBox("长短信0500出错。");
 			i = 0;
-			return i;
+			lToReturn.ntoreturn = i;
+			return lToReturn;
 		}
 		nPos += 2;
 		if ((*(pSrc+nPos) != '0') && (*(pSrc+nPos+1) != '3'))  //03  剩下短信标识的长度 
 		{
 			AfxMessageBox("长短信050003出错。");
 			i = 0;
-			return i;
+			lToReturn.ntoreturn = i;
+			return lToReturn;
 		}
 		nPos += 2;
 		// XX短信标志 
-		strSMSText = "长短信ID:";
-		strSMSText += *(pSrc+nPos);
-		strSMSText += *(pSrc+nPos+1);
-		strSMSText += ". ";
+//		strSMSText = "ID:";
+//		strSMSText += *(pSrc+nPos);
+//		strSMSText += *(pSrc+nPos+1);
+//		strSMSText += ". ";
+		lToReturn.strID += *(pSrc+nPos);
+		lToReturn.strID += *(pSrc+nPos+1);
 		nPos += 2;
-		//MM短信数量最多为5 
+		//MM短信数量一般最多为5 
+		strSMSTotalNum += *(pSrc+nPos);
+		strSMSTotalNum += *(pSrc+nPos+1);
+		lToReturn.nAllNum = atoi(strSMSTotalNum);
 		nPos += 2;
 		//NN第几条
-		strSMSText += "第";
-		strSMSText += *(pSrc+nPos) + *(pSrc+nPos+1);
+//		strSMSText += "第";
+//		strSMSText += *(pSrc+nPos) + *(pSrc+nPos+1);
 		char aTemp = *(pSrc+nPos+1);
 		pDst->index = atoi(&aTemp);
-		strSMSText += "条: ";
+//		strSMSText += "条: ";
 		nPos += 2;		
 	} 
 	else if(nlen==6)
@@ -1143,41 +1157,51 @@ int LongSMSTextDeCode(char *pSrc, SM_PARAM *pDst,int ndecodeMode,int nLength)
 		{
 			AfxMessageBox("长短信0608出错。");
 			i = 0;
-			return i;
+			lToReturn.ntoreturn = i;
+			return lToReturn;
 		}
 		nPos += 2;
 		if ((*(pSrc+nPos) != '0') && (*(pSrc+nPos+1) != '4'))  //04  剩下短信标识的长度 
 		{
 			AfxMessageBox("长短信060804出错。");
 			i = 0;
-			return i;
+			lToReturn.ntoreturn = i;
+			return lToReturn;
 		}
 		nPos += 2;
 		// XX XX短信标志 
-		strSMSText = "长短信ID:";
-		strSMSText += *(pSrc+nPos);
-		strSMSText += *(pSrc+nPos+1);
-		strSMSText += " ";
-		strSMSText += *(pSrc+nPos+2);
-		strSMSText += *(pSrc+nPos+3);
-		strSMSText += ". ";
+//		strSMSText = "ID:";
+//		strSMSText += *(pSrc+nPos);
+//		strSMSText += *(pSrc+nPos+1);
+//		strSMSText += " ";
+//		strSMSText += *(pSrc+nPos+2);
+//		strSMSText += *(pSrc+nPos+3);
+//		strSMSText += ". ";
+		lToReturn.strID += *(pSrc+nPos);
+		lToReturn.strID += *(pSrc+nPos+1);
+		lToReturn.strID += *(pSrc+nPos+2);
+		lToReturn.strID += *(pSrc+nPos+3);
 		nPos += 4;
-		//MM短信数量最多为5 
+		//MM短信数量一般最多为5 
+		strSMSTotalNum += *(pSrc+nPos);
+		strSMSTotalNum += *(pSrc+nPos+1);
+		lToReturn.nAllNum = atoi(strSMSTotalNum);
 		nPos += 2;
 		//NN第几条
-		strSMSText += "第";
+//		strSMSText += "第";
 		strSMSText += *(pSrc+nPos);
 		strSMSText += *(pSrc+nPos+1);
 		char aTemp = *(pSrc+nPos+1);
 		pDst->index = atoi(&aTemp);
-		strSMSText += "条: ";
+//		strSMSText += "条: ";
 		nPos += 2;
 	}
 	else
 	{
 		AfxMessageBox("长短信协议长度不是05或者08。");
 		i = 0;
-		return i;
+		lToReturn.ntoreturn = i;
+		return lToReturn;
 	}
 			strCount num;
 			num	= Statistic(strSMSText);
@@ -1216,7 +1240,10 @@ int LongSMSTextDeCode(char *pSrc, SM_PARAM *pDst,int ndecodeMode,int nLength)
 				memcpy(pDst->TP_UD,strSMSText,length+j); 
 				*(pDst->TP_UD+j+length) = '\0';
 			i=1;
-			return i;
+	//		return i;
+	  		lToReturn.ntoreturn = i;
+			return lToReturn;
+			
 }
 
 strCount Statistic(CString str) 
@@ -1326,7 +1353,7 @@ void CMSError(CString str)
 	}
 }
 //长短信编码，比CEncodePDU多了个nOrder，表示第几条，其他均一致。
-funReturn cEncodeLongPDU(CString strDstNum, CString strSMSText,char * chForPDU,BOOL bChineseFlag,int nLenth,CString Order,CString TotalOrder)
+funReturn cEncodeLongPDU(CString strDstNum, CString strSMSText,char * chForPDU,BOOL bChineseFlag,int nLenth,CString Order,CString TotalOrder,int nID)
 {
 	funReturn c;
 	c.bToReturn =TRUE;
@@ -1336,11 +1363,13 @@ funReturn cEncodeLongPDU(CString strDstNum, CString strSMSText,char * chForPDU,B
 	cDstNum = strDstNum.GetBuffer(strDstNum.GetLength()); 
 	strDstNum.ReleaseBuffer(); //dst number
 	
-	char chText[512];
+	char chText[256];
+	memset(chText,0,256);
 	memcpy(chText,strSMSText,strSMSText.GetLength());
-	int	len = strSMSText.GetLength() +2;
-	chText[len-2] = '\r';
-	chText[len-1] = '\n';
+	int len = strSMSText.GetLength();
+//	int	len = strSMSText.GetLength() +2;
+//	chText[len-2] = '\r';
+//	chText[len-1] = '\n';
 	//-----------------------------
 	int nTPDUlen = 0;
 	int nPos = 0;
@@ -1400,6 +1429,7 @@ funReturn cEncodeLongPDU(CString strDstNum, CString strSMSText,char * chForPDU,B
 	nTPDUlen += 2;
 	if (bChineseFlag)
 	{
+		CString strTmp = "";
 	//--------------------------------------------
 	//TP-UDL   采用050003XXXXXX 
 	char a = nLenth*2+6;
@@ -1415,8 +1445,10 @@ funReturn cEncodeLongPDU(CString strDstNum, CString strSMSText,char * chForPDU,B
 	chForPDU[nPos+5] = '3';
 	nPos += 6;
 	nTPDUlen += 6;
-	chForPDU[nPos] = '8';
-	chForPDU[nPos+1] = '2';
+//	chForPDU[nPos] = '8';
+	strTmp.Format("%d",nID);
+//	chForPDU[nPos+1] = strTmp;
+	strncpy(&chForPDU[nPos],(LPCTSTR)strTmp,2);
 	nPos += 2;
 	nTPDUlen += 2;
 	//总条数
@@ -1433,8 +1465,8 @@ funReturn cEncodeLongPDU(CString strDstNum, CString strSMSText,char * chForPDU,B
 
 //真正的TP-UD数据
 		unsigned char buf[256];
-	//	int i = nEncodeUnicode(chText,buf,strSMSText.GetLength());
-		int i = nEncodeUnicode(chText,buf,nLenth*2);
+		int i = nEncodeUnicode(chText,buf,strSMSText.GetLength());
+//		int i = nEncodeUnicode(chText,buf,nLenth*2);
 		int j=nBytes2CString(buf,&chForPDU[nPos],i*2);
 		nTPDUlen += i*2;
 //		PDUlength = nPos + i*2; //PDU 总长度
